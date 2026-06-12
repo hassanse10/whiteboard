@@ -48,13 +48,19 @@ function scheduleSave(boardId) {
 
 io.on("connection", (socket) => {
   socket.on("join", async ({ boardId, name, color }) => {
+    if (!boardId || typeof boardId !== "string") return;
+
     socket.join(boardId);
     socket.data.boardId = boardId;
     socket.data.identity = { name, color };
     rooms.join(boardId, socket.id, { name, color });
 
-    const scene = await loadRoomScene(boardId);
-    socket.emit("init", { scene });
+    try {
+      const scene = await loadRoomScene(boardId);
+      socket.emit("init", { scene });
+    } catch (err) {
+      console.error(`Failed to load scene for board ${boardId}`, err);
+    }
   });
 
   socket.on("scene-update", ({ elements }) => {
