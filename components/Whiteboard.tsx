@@ -1,0 +1,810 @@
+"use client";
+
+import dynamic from "next/dynamic";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import "@excalidraw/excalidraw/index.css";
+
+type ToolType =
+  | "selection"
+  | "rectangle"
+  | "diamond"
+  | "ellipse"
+  | "arrow"
+  | "line"
+  | "freedraw"
+  | "text"
+  | "image"
+  | "eraser"
+  | "hand"
+  | "frame"
+  | "magicframe"
+  | "embeddable"
+  | "laser";
+
+type ActiveToolState = {
+  type: ToolType;
+  customType: null;
+};
+
+const Excalidraw = dynamic<any>(
+  async () => {
+    const mod = await import("@excalidraw/excalidraw");
+    return mod.Excalidraw;
+  },
+  {
+    ssr: false
+  }
+);
+
+const supportedLanguages = ["en", "es", "fr", "de", "ja", "ko", "pt", "ru", "it", "nl"];
+const languageLabels: Record<string, string> = {
+  en: "English",
+  es: "Español",
+  fr: "Français",
+  de: "Deutsch",
+  ja: "日本語",
+  ko: "한국어",
+  pt: "Português",
+  ru: "Русский",
+  it: "Italiano",
+  nl: "Nederlands"
+};
+
+function normalizeLanguage(locale: string) {
+  const code = locale.split("-")[0];
+  return supportedLanguages.includes(code) ? code : "en";
+}
+
+function serializeScene(scene: any) {
+  return btoa(encodeURIComponent(JSON.stringify(scene)));
+}
+
+function deserializeScene(value: string) {
+  return sanitizeScene(JSON.parse(decodeURIComponent(atob(value))));
+}
+
+function sanitizeScene(scene: any) {
+  const safeScene = {
+    elements: Array.isArray(scene?.elements) ? scene.elements : [],
+    appState: {
+      ...scene?.appState,
+      theme: scene?.appState?.theme || "light",
+      exportBackground: scene?.appState?.exportBackground ?? true,
+      viewBackgroundColor: scene?.appState?.viewBackgroundColor || "#ffffff",
+      collaborators: Array.isArray(scene?.appState?.collaborators) ? scene.appState.collaborators : []
+    },
+    files: scene?.files || {}
+  };
+
+  if (!Array.isArray(safeScene.appState.collaborators)) {
+    safeScene.appState.collaborators = [];
+  }
+
+  return safeScene;
+}
+
+type IconName =
+  | "lock"
+  | "hand"
+  | "pointer"
+  | "square"
+  | "diamond"
+  | "circle"
+  | "arrow"
+  | "line"
+  | "pencil"
+  | "text"
+  | "image"
+  | "eraser"
+  | "shapes"
+  | "layerToBack"
+  | "layerBackward"
+  | "layerForward"
+  | "layerToFront";
+
+const iconPaths: Record<IconName, ReactNode> = {
+  lock: (
+    <>
+      <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
+      <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+    </>
+  ),
+  hand: (
+    <>
+      <path d="M18 11V6a2 2 0 0 0-4 0v5" />
+      <path d="M14 10V4a2 2 0 0 0-4 0v6" />
+      <path d="M10 10.5V6a2 2 0 0 0-4 0v8" />
+      <path d="M18 8a2 2 0 1 1 4 0v6a8 8 0 0 1-8 8h-2c-2.8 0-4.5-.86-5.99-2.34l-3.6-3.6a2 2 0 0 1 2.83-2.82L7 15" />
+    </>
+  ),
+  pointer: <path d="M4.04 4.69a.5.5 0 0 1 .65-.65l16 6.5a.5.5 0 0 1-.06.95l-6.12 1.58a2 2 0 0 0-1.44 1.44l-1.58 6.12a.5.5 0 0 1-.95.06z" />,
+  square: <rect x="3" y="3" width="18" height="18" rx="2" />,
+  diamond: <path d="M12 2 22 12 12 22 2 12Z" />,
+  circle: <circle cx="12" cy="12" r="9" />,
+  arrow: (
+    <>
+      <path d="M5 12h14" />
+      <path d="m13 5 7 7-7 7" />
+    </>
+  ),
+  line: <path d="M5 12h14" />,
+  pencil: (
+    <>
+      <path d="M12 20h9" />
+      <path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z" />
+    </>
+  ),
+  text: (
+    <>
+      <path d="M4 7V4h16v3" />
+      <path d="M9 20h6" />
+      <path d="M12 4v16" />
+    </>
+  ),
+  image: (
+    <>
+      <rect x="3" y="3" width="18" height="18" rx="2" />
+      <circle cx="9" cy="9" r="2" />
+      <path d="m21 15-3.1-3.1a2 2 0 0 0-2.8 0L6 21" />
+    </>
+  ),
+  eraser: (
+    <>
+      <path d="m7 21-4.3-4.3c-1-1-1-2.5 0-3.4l9.6-9.6c1-1 2.5-1 3.4 0l5.3 5.3c1 1 1 2.5 0 3.4L13 21" />
+      <path d="M22 21H7" />
+      <path d="m5 11 9 9" />
+    </>
+  ),
+  shapes: (
+    <>
+      <path d="M8.3 10a.7.7 0 0 1-.63-1.08l4.55-7.07a.7.7 0 0 1 1.25 0l4.55 7.07a.7.7 0 0 1-.63 1.08Z" />
+      <rect x="3" y="14" width="7" height="7" rx="1" />
+      <circle cx="17.5" cy="17.5" r="3.5" />
+    </>
+  ),
+  layerToBack: (
+    <>
+      <path d="M12 5v9" />
+      <path d="m8 10 4 4 4-4" />
+      <path d="M4 19h16" />
+    </>
+  ),
+  layerBackward: (
+    <>
+      <path d="M12 5v14" />
+      <path d="m6 13 6 6 6-6" />
+    </>
+  ),
+  layerForward: (
+    <>
+      <path d="M12 19V5" />
+      <path d="m6 11 6-6 6 6" />
+    </>
+  ),
+  layerToFront: (
+    <>
+      <path d="M4 5h16" />
+      <path d="m8 14 4-4 4 4" />
+      <path d="M12 10v9" />
+    </>
+  )
+};
+
+function ToolIcon({ name }: { name: IconName }) {
+  return (
+    <svg
+      width="20"
+      height="20"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.5"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      {iconPaths[name]}
+    </svg>
+  );
+}
+
+type ToolOption = {
+  label: string;
+  tool: ToolType;
+  icon: IconName;
+  shortcut: string;
+};
+
+const toolOptions: ToolOption[] = [
+  { label: "Selection", tool: "selection", icon: "pointer", shortcut: "1" },
+  { label: "Rectangle", tool: "rectangle", icon: "square", shortcut: "2" },
+  { label: "Diamond", tool: "diamond", icon: "diamond", shortcut: "3" },
+  { label: "Ellipse", tool: "ellipse", icon: "circle", shortcut: "4" },
+  { label: "Arrow", tool: "arrow", icon: "arrow", shortcut: "5" },
+  { label: "Line", tool: "line", icon: "line", shortcut: "6" },
+  { label: "Draw", tool: "freedraw", icon: "pencil", shortcut: "7" },
+  { label: "Text", tool: "text", icon: "text", shortcut: "8" },
+  { label: "Image", tool: "image", icon: "image", shortcut: "9" },
+  { label: "Eraser", tool: "eraser", icon: "eraser", shortcut: "0" }
+];
+
+const drawingTools: ToolType[] = ["rectangle", "diamond", "ellipse", "arrow", "line", "freedraw", "text"];
+
+const strokeColors = ["#1e1e1e", "#e03131", "#2f9e44", "#1971c2", "#f08c00"];
+const backgroundColors = ["transparent", "#ffc9c9", "#b2f2bb", "#a5d8ff", "#ffec99"];
+const strokeWidths = [1, 2, 4];
+
+export default function Whiteboard() {
+  const [theme, setTheme] = useState<"light" | "dark">("light");
+  const [langCode, setLangCode] = useState("en");
+  const [languageLabel, setLanguageLabel] = useState("English");
+  const [initialData, setInitialData] = useState<any>(
+    sanitizeScene({
+      elements: [],
+      appState: { theme: "light", exportBackground: true, viewBackgroundColor: "#ffffff", collaborators: [] }
+    })
+  );
+  const sceneRef = useRef<any>(initialData);
+  const [boardKey, setBoardKey] = useState("whiteboard-default");
+  const [shareUrl, setShareUrl] = useState("");
+  const [statusMessage, setStatusMessage] = useState("");
+  const [activeTool, setActiveTool] = useState<ToolType>("selection");
+  const [toolLocked, setToolLocked] = useState(false);
+  const [hasSelection, setHasSelection] = useState(false);
+  const [currentStrokeColor, setCurrentStrokeColor] = useState("#1e1e1e");
+  const [currentBackgroundColor, setCurrentBackgroundColor] = useState("transparent");
+  const [currentStrokeWidth, setCurrentStrokeWidth] = useState(1);
+  const [currentOpacity, setCurrentOpacity] = useState(100);
+  const excalidrawAPI = useRef<any>(null);
+
+  const showStylePanel = drawingTools.includes(activeTool) || (activeTool === "selection" && hasSelection);
+
+  const uiOptions = useMemo(
+    () => ({
+      canvasActions: {
+        loadScene: true,
+        saveToActiveFile: true,
+        export: {
+          saveFileToDisk: true
+        },
+        saveAsImage: true
+      },
+      tools: {
+        image: true
+      }
+    }),
+    []
+  );
+
+  useEffect(() => {
+    const browserLocale = navigator.language || navigator.languages?.[0] || "en";
+    const selectedLang = normalizeLanguage(browserLocale);
+    setLangCode(selectedLang);
+    setLanguageLabel(languageLabels[selectedLang] ?? "English");
+
+    const params = new URLSearchParams(window.location.search);
+    const sceneParam = params.get("scene");
+
+    if (sceneParam) {
+      try {
+        const sharedScene = deserializeScene(sceneParam);
+        setInitialData(sharedScene);
+        sceneRef.current = sharedScene;
+        setBoardKey(`whiteboard-shared-${Date.now()}`);
+        setStatusMessage("Loaded shared whiteboard from link.");
+      } catch (error) {
+        console.warn("Unable to load shared scene", error);
+        setStatusMessage("Could not load the shared whiteboard data.");
+      }
+    } else {
+      const saved = localStorage.getItem("whiteboard-scene");
+      if (saved) {
+        try {
+          const savedScene = sanitizeScene(JSON.parse(saved));
+          setInitialData(savedScene);
+          sceneRef.current = savedScene;
+          setBoardKey(`whiteboard-saved-${Date.now()}`);
+        } catch {
+          // ignore invalid localStorage value
+        }
+      }
+    }
+  }, []);
+
+  const handleShare = () => {
+    try {
+      const sanitizedScene = sanitizeScene(sceneRef.current);
+      const encoded = serializeScene(sanitizedScene);
+      const url = `${window.location.origin}${window.location.pathname}?scene=${encoded}`;
+      setShareUrl(url);
+      navigator.clipboard.writeText(url);
+      setStatusMessage("Shareable link copied to clipboard.");
+    } catch (error) {
+      console.warn("Failed to create share link", error);
+      setStatusMessage("Unable to create a share link right now.");
+    }
+  };
+
+  const handleToolSelect = (tool: ToolType) => {
+    setActiveTool(tool);
+    excalidrawAPI.current?.setActiveTool({ type: tool, customType: null, locked: toolLocked });
+  };
+
+  const handleToggleLock = () => {
+    const next = !toolLocked;
+    setToolLocked(next);
+    excalidrawAPI.current?.setActiveTool({ type: activeTool, customType: null, locked: next });
+  };
+
+  const applyStyle = (property: "strokeColor" | "backgroundColor" | "strokeWidth" | "opacity", value: any) => {
+    const api = excalidrawAPI.current;
+    if (!api) return;
+
+    const appState = api.getAppState();
+    const elements = api.getSceneElements();
+    const selectedIds = appState.selectedElementIds || {};
+    const hasSelected = Object.keys(selectedIds).some((id) => selectedIds[id]);
+
+    const updatedElements = hasSelected
+      ? elements.map((el: any) => (selectedIds[el.id] ? { ...el, [property]: value } : el))
+      : elements;
+
+    const currentItemKey = `currentItem${property[0].toUpperCase()}${property.slice(1)}`;
+
+    api.updateScene({
+      elements: updatedElements,
+      appState: { [currentItemKey]: value }
+    });
+
+    if (property === "strokeColor") setCurrentStrokeColor(value);
+    if (property === "backgroundColor") setCurrentBackgroundColor(value);
+    if (property === "strokeWidth") setCurrentStrokeWidth(value);
+    if (property === "opacity") setCurrentOpacity(value);
+  };
+
+  const moveLayer = (direction: "toBack" | "backward" | "forward" | "toFront") => {
+    const api = excalidrawAPI.current;
+    if (!api) return;
+
+    const appState = api.getAppState();
+    const elements = api.getSceneElements();
+    const selectedIds = appState.selectedElementIds || {};
+    if (!Object.keys(selectedIds).some((id) => selectedIds[id])) return;
+
+    let newElements;
+    if (direction === "toFront") {
+      const selected = elements.filter((el: any) => selectedIds[el.id]);
+      const rest = elements.filter((el: any) => !selectedIds[el.id]);
+      newElements = [...rest, ...selected];
+    } else if (direction === "toBack") {
+      const selected = elements.filter((el: any) => selectedIds[el.id]);
+      const rest = elements.filter((el: any) => !selectedIds[el.id]);
+      newElements = [...selected, ...rest];
+    } else if (direction === "forward") {
+      newElements = [...elements];
+      for (let i = newElements.length - 2; i >= 0; i--) {
+        if (selectedIds[newElements[i].id] && !selectedIds[newElements[i + 1].id]) {
+          [newElements[i], newElements[i + 1]] = [newElements[i + 1], newElements[i]];
+        }
+      }
+    } else {
+      newElements = [...elements];
+      for (let i = 1; i < newElements.length; i++) {
+        if (selectedIds[newElements[i].id] && !selectedIds[newElements[i - 1].id]) {
+          [newElements[i], newElements[i - 1]] = [newElements[i - 1], newElements[i]];
+        }
+      }
+    }
+
+    api.updateScene({ elements: newElements });
+  };
+
+  return (
+    <div className="whiteboard-shell">
+      <header className="whiteboard-header">
+        <h1>Whiteboard</h1>
+        <p>Sketch, draw, and share ideas in a responsive web whiteboard.</p>
+      </header>
+
+      <div className="toolbar">
+        <div className="toolbar-section">
+          <button
+            type="button"
+            onClick={() => setTheme((current) => (current === "light" ? "dark" : "light"))}
+          >
+            {theme === "light" ? "Switch to dark mode" : "Switch to light mode"}
+          </button>
+          <button type="button" onClick={handleShare}>
+            Share board
+          </button>
+        </div>
+        <div className="toolbar-section">
+          <span className="status-text">Theme: {theme}</span>
+          <span className="status-text">Language: {languageLabel}</span>
+        </div>
+      </div>
+
+      {shareUrl ? (
+        <div className="share-link-banner">
+          Share link copied: <a href={shareUrl}>{shareUrl}</a>
+        </div>
+      ) : null}
+      {statusMessage ? <div className="share-status">{statusMessage}</div> : null}
+
+      <div className="board-wrapper">
+        {showStylePanel ? (
+          <div className="style-panel">
+            <div className="panel-section">
+              <span className="panel-label">Stroke</span>
+              <div className="swatch-row">
+                {strokeColors.map((color) => (
+                  <button
+                    key={color}
+                    type="button"
+                    className={color === currentStrokeColor ? "swatch active" : "swatch"}
+                    style={{ background: color }}
+                    onClick={() => applyStyle("strokeColor", color)}
+                    aria-label={`Stroke color ${color}`}
+                  />
+                ))}
+              </div>
+            </div>
+
+            <div className="panel-section">
+              <span className="panel-label">Background</span>
+              <div className="swatch-row">
+                {backgroundColors.map((color) => (
+                  <button
+                    key={color}
+                    type="button"
+                    className={
+                      color === currentBackgroundColor
+                        ? "swatch active" + (color === "transparent" ? " transparent" : "")
+                        : "swatch" + (color === "transparent" ? " transparent" : "")
+                    }
+                    style={color === "transparent" ? undefined : { background: color }}
+                    onClick={() => applyStyle("backgroundColor", color)}
+                    aria-label={`Background color ${color}`}
+                  />
+                ))}
+              </div>
+            </div>
+
+            <div className="panel-section">
+              <span className="panel-label">Stroke width</span>
+              <div className="option-row">
+                {strokeWidths.map((width) => (
+                  <button
+                    key={width}
+                    type="button"
+                    className={width === currentStrokeWidth ? "option-btn active" : "option-btn"}
+                    onClick={() => applyStyle("strokeWidth", width)}
+                    aria-label={`Stroke width ${width}`}
+                  >
+                    <div className="width-bar" style={{ height: width }} />
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="panel-section">
+              <span className="panel-label">Opacity</span>
+              <input
+                type="range"
+                min={0}
+                max={100}
+                step={10}
+                value={currentOpacity}
+                onChange={(event) => applyStyle("opacity", Number(event.target.value))}
+                className="opacity-slider"
+              />
+              <div className="opacity-scale">
+                <span>0</span>
+                <span>100</span>
+              </div>
+            </div>
+
+            <div className="panel-section">
+              <span className="panel-label">Layers</span>
+              <div className="option-row">
+                <button type="button" className="option-btn" onClick={() => moveLayer("toBack")} title="Send to back" aria-label="Send to back">
+                  <ToolIcon name="layerToBack" />
+                </button>
+                <button type="button" className="option-btn" onClick={() => moveLayer("backward")} title="Send backward" aria-label="Send backward">
+                  <ToolIcon name="layerBackward" />
+                </button>
+                <button type="button" className="option-btn" onClick={() => moveLayer("forward")} title="Bring forward" aria-label="Bring forward">
+                  <ToolIcon name="layerForward" />
+                </button>
+                <button type="button" className="option-btn" onClick={() => moveLayer("toFront")} title="Bring to front" aria-label="Bring to front">
+                  <ToolIcon name="layerToFront" />
+                </button>
+              </div>
+            </div>
+          </div>
+        ) : null}
+
+        <div className="floating-toolbar">
+          <button
+            type="button"
+            className={toolLocked ? "icon-btn active" : "icon-btn"}
+            onClick={handleToggleLock}
+            title="Keep selected tool active after drawing"
+            aria-label="Toggle tool lock"
+          >
+            <ToolIcon name="lock" />
+          </button>
+          <button
+            type="button"
+            className={activeTool === "hand" ? "icon-btn active" : "icon-btn"}
+            onClick={() => handleToolSelect("hand")}
+            title="Hand (pan)"
+            aria-label="Hand tool"
+          >
+            <ToolIcon name="hand" />
+          </button>
+
+          <div className="toolbar-divider" />
+
+          {toolOptions.map((option) => (
+            <button
+              key={option.tool}
+              type="button"
+              className={option.tool === activeTool ? "icon-btn active" : "icon-btn"}
+              onClick={() => handleToolSelect(option.tool)}
+              title={`${option.label} (${option.shortcut})`}
+              aria-label={option.label}
+            >
+              <ToolIcon name={option.icon} />
+              <span className="shortcut">{option.shortcut}</span>
+            </button>
+          ))}
+
+          <div className="toolbar-divider" />
+
+          <button
+            type="button"
+            className={activeTool === "frame" ? "icon-btn active" : "icon-btn"}
+            onClick={() => handleToolSelect("frame")}
+            title="More tools (frame)"
+            aria-label="More tools"
+          >
+            <ToolIcon name="shapes" />
+          </button>
+        </div>
+
+        <div className="whiteboard-wrapper" data-theme={theme}>
+          <Excalidraw
+            key={boardKey}
+            initialData={initialData}
+            langCode={langCode}
+            UIOptions={uiOptions}
+            excalidrawAPI={(api: any) => {
+              excalidrawAPI.current = api;
+            }}
+            onPointerDown={(activeTool: any) => {
+              if (activeTool?.type) {
+                setActiveTool(activeTool.type);
+              }
+            }}
+            onChange={(elements: any, appState: any) => {
+              const scene = sanitizeScene({ elements, appState });
+              sceneRef.current = scene;
+              try {
+                localStorage.setItem("whiteboard-scene", JSON.stringify(scene));
+              } catch {
+                // ignore storage failures
+              }
+
+              setHasSelection(Object.values(appState.selectedElementIds || {}).some(Boolean));
+              setCurrentStrokeColor(appState.currentItemStrokeColor ?? "#1e1e1e");
+              setCurrentBackgroundColor(appState.currentItemBackgroundColor ?? "transparent");
+              setCurrentStrokeWidth(appState.currentItemStrokeWidth ?? 1);
+              setCurrentOpacity(appState.currentItemOpacity ?? 100);
+            }}
+          />
+        </div>
+      </div>
+
+      <style jsx>{`
+        .style-panel {
+          position: absolute;
+          top: 16px;
+          left: 16px;
+          z-index: 10;
+          display: flex;
+          flex-direction: column;
+          gap: 16px;
+          width: 200px;
+          padding: 16px;
+          background: #ffffff;
+          border-radius: 12px;
+          box-shadow: 0 4px 12px rgba(15, 23, 42, 0.12), 0 2px 4px rgba(15, 23, 42, 0.08);
+        }
+
+        .panel-section {
+          display: flex;
+          flex-direction: column;
+          gap: 8px;
+        }
+
+        .panel-label {
+          font-size: 0.8rem;
+          font-weight: 600;
+          color: #4b5563;
+        }
+
+        .swatch-row {
+          display: flex;
+          align-items: center;
+          gap: 6px;
+        }
+
+        .swatch {
+          width: 24px;
+          height: 24px;
+          border-radius: 6px;
+          border: 1px solid rgba(15, 23, 42, 0.1);
+          padding: 0;
+        }
+
+        .swatch.transparent {
+          background-image:
+            linear-gradient(45deg, #e5e7eb 25%, transparent 25%, transparent 75%, #e5e7eb 75%),
+            linear-gradient(45deg, #e5e7eb 25%, transparent 25%, transparent 75%, #e5e7eb 75%);
+          background-size: 8px 8px;
+          background-position: 0 0, 4px 4px;
+          background-color: #ffffff;
+        }
+
+        .swatch.active {
+          outline: 2px solid #6965db;
+          outline-offset: 1px;
+        }
+
+        .option-row {
+          display: flex;
+          align-items: center;
+          gap: 6px;
+        }
+
+        .option-btn {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          width: 36px;
+          height: 32px;
+          border-radius: 8px;
+          background: #f1f3f5;
+          border: none;
+          color: #1e1e1e;
+          transition: background 0.15s ease, color 0.15s ease;
+        }
+
+        .option-btn:hover {
+          background: #e9ecef;
+        }
+
+        .option-btn.active {
+          background: #e0dfff;
+          color: #6965db;
+        }
+
+        .width-bar {
+          width: 16px;
+          border-radius: 999px;
+          background: currentColor;
+        }
+
+        .opacity-slider {
+          width: 100%;
+          accent-color: #6965db;
+        }
+
+        .opacity-scale {
+          display: flex;
+          justify-content: space-between;
+          font-size: 0.75rem;
+          color: #9ca3af;
+        }
+
+        .floating-toolbar {
+          position: absolute;
+          top: 16px;
+          left: 50%;
+          transform: translateX(-50%);
+          z-index: 10;
+          display: flex;
+          align-items: center;
+          gap: 4px;
+          padding: 6px;
+          background: #ffffff;
+          border-radius: 12px;
+          box-shadow: 0 4px 12px rgba(15, 23, 42, 0.12), 0 2px 4px rgba(15, 23, 42, 0.08);
+        }
+
+        .icon-btn {
+          position: relative;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          width: 40px;
+          height: 40px;
+          padding: 0;
+          border-radius: 8px;
+          background: transparent;
+          border: none;
+          color: #1e1e1e;
+          transition: background 0.15s ease, color 0.15s ease;
+        }
+
+        .icon-btn:hover {
+          background: #f1f0ff;
+        }
+
+        .icon-btn.active {
+          background: #e0dfff;
+          color: #6965db;
+        }
+
+        .icon-btn:focus-visible {
+          outline: 2px solid #2563eb;
+          outline-offset: 2px;
+        }
+
+        .icon-btn .shortcut {
+          position: absolute;
+          bottom: 2px;
+          right: 4px;
+          font-size: 9px;
+          line-height: 1;
+          color: #9ca3af;
+        }
+
+        .icon-btn.active .shortcut {
+          color: #6965db;
+        }
+
+        .toolbar-divider {
+          width: 1px;
+          height: 24px;
+          margin: 0 2px;
+          background: #e5e7eb;
+        }
+
+        @media (max-width: 640px) {
+          .floating-toolbar {
+            max-width: calc(100vw - 24px);
+            overflow-x: auto;
+            top: 8px;
+          }
+
+          .icon-btn {
+            width: 36px;
+            height: 36px;
+            flex-shrink: 0;
+          }
+        }
+      `}</style>
+
+      <style jsx global>{`
+        .excalidraw .ToolIcon,
+        .excalidraw .ToolIcon__icon,
+        .excalidraw .ToolIcon__hidden,
+        .excalidraw .ToolIcon__keybinding,
+        .excalidraw .ToolIcon__overlay {
+          display: none !important;
+        }
+
+        .excalidraw .App-menu,
+        .excalidraw .top-right,
+        .excalidraw .top-right .ToolIcon {
+          display: none !important;
+        }
+
+        .excalidraw .canvas {
+          margin-top: 0 !important;
+        }
+      `}</style>
+    </div>
+  );
+}
