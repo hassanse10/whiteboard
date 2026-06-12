@@ -37,26 +37,10 @@ const Excalidraw = dynamic<any>(
 );
 
 const supportedLanguages = ["en", "es", "fr", "de", "ja", "ko", "pt", "ru", "it", "nl"];
-const languageLabels: Record<string, string> = {
-  en: "English",
-  es: "Español",
-  fr: "Français",
-  de: "Deutsch",
-  ja: "日本語",
-  ko: "한국어",
-  pt: "Português",
-  ru: "Русский",
-  it: "Italiano",
-  nl: "Nederlands"
-};
 
 function normalizeLanguage(locale: string) {
   const code = locale.split("-")[0];
   return supportedLanguages.includes(code) ? code : "en";
-}
-
-function serializeScene(scene: any) {
-  return btoa(encodeURIComponent(JSON.stringify(scene)));
 }
 
 function deserializeScene(value: string) {
@@ -234,9 +218,7 @@ const backgroundColors = ["transparent", "#ffc9c9", "#b2f2bb", "#a5d8ff", "#ffec
 const strokeWidths = [1, 2, 4];
 
 export default function Whiteboard() {
-  const [theme, setTheme] = useState<"light" | "dark">("light");
   const [langCode, setLangCode] = useState("en");
-  const [languageLabel, setLanguageLabel] = useState("English");
   const [initialData, setInitialData] = useState<any>(
     sanitizeScene({
       elements: [],
@@ -245,8 +227,6 @@ export default function Whiteboard() {
   );
   const sceneRef = useRef<any>(initialData);
   const [boardKey, setBoardKey] = useState("whiteboard-default");
-  const [shareUrl, setShareUrl] = useState("");
-  const [statusMessage, setStatusMessage] = useState("");
   const [activeTool, setActiveTool] = useState<ToolType>("selection");
   const [toolLocked, setToolLocked] = useState(false);
   const [hasSelection, setHasSelection] = useState(false);
@@ -277,9 +257,7 @@ export default function Whiteboard() {
 
   useEffect(() => {
     const browserLocale = navigator.language || navigator.languages?.[0] || "en";
-    const selectedLang = normalizeLanguage(browserLocale);
-    setLangCode(selectedLang);
-    setLanguageLabel(languageLabels[selectedLang] ?? "English");
+    setLangCode(normalizeLanguage(browserLocale));
 
     const params = new URLSearchParams(window.location.search);
     const sceneParam = params.get("scene");
@@ -290,10 +268,8 @@ export default function Whiteboard() {
         setInitialData(sharedScene);
         sceneRef.current = sharedScene;
         setBoardKey(`whiteboard-shared-${Date.now()}`);
-        setStatusMessage("Loaded shared whiteboard from link.");
       } catch (error) {
         console.warn("Unable to load shared scene", error);
-        setStatusMessage("Could not load the shared whiteboard data.");
       }
     } else {
       const saved = localStorage.getItem("whiteboard-scene");
@@ -309,20 +285,6 @@ export default function Whiteboard() {
       }
     }
   }, []);
-
-  const handleShare = () => {
-    try {
-      const sanitizedScene = sanitizeScene(sceneRef.current);
-      const encoded = serializeScene(sanitizedScene);
-      const url = `${window.location.origin}${window.location.pathname}?scene=${encoded}`;
-      setShareUrl(url);
-      navigator.clipboard.writeText(url);
-      setStatusMessage("Shareable link copied to clipboard.");
-    } catch (error) {
-      console.warn("Failed to create share link", error);
-      setStatusMessage("Unable to create a share link right now.");
-    }
-  };
 
   const handleToolSelect = (tool: ToolType) => {
     setActiveTool(tool);
@@ -400,36 +362,6 @@ export default function Whiteboard() {
 
   return (
     <div className="whiteboard-shell">
-      <header className="whiteboard-header">
-        <h1>Whiteboard</h1>
-        <p>Sketch, draw, and share ideas in a responsive web whiteboard.</p>
-      </header>
-
-      <div className="toolbar">
-        <div className="toolbar-section">
-          <button
-            type="button"
-            onClick={() => setTheme((current) => (current === "light" ? "dark" : "light"))}
-          >
-            {theme === "light" ? "Switch to dark mode" : "Switch to light mode"}
-          </button>
-          <button type="button" onClick={handleShare}>
-            Share board
-          </button>
-        </div>
-        <div className="toolbar-section">
-          <span className="status-text">Theme: {theme}</span>
-          <span className="status-text">Language: {languageLabel}</span>
-        </div>
-      </div>
-
-      {shareUrl ? (
-        <div className="share-link-banner">
-          Share link copied: <a href={shareUrl}>{shareUrl}</a>
-        </div>
-      ) : null}
-      {statusMessage ? <div className="share-status">{statusMessage}</div> : null}
-
       <div className="board-wrapper">
         {showStylePanel ? (
           <div className="style-panel">
@@ -572,7 +504,7 @@ export default function Whiteboard() {
           </button>
         </div>
 
-        <div className="whiteboard-wrapper" data-theme={theme}>
+        <div className="whiteboard-wrapper">
           <Excalidraw
             key={boardKey}
             initialData={initialData}
