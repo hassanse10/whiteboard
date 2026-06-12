@@ -363,6 +363,12 @@ export default function Whiteboard() {
       socket.off("scene-update", handleSceneUpdate);
       socket.off("cursor-update", handleCursorUpdate);
       socket.off("collaborator-left", handleCollaboratorLeft);
+      if (sceneUpdateTimerRef.current) {
+        clearTimeout(sceneUpdateTimerRef.current);
+      }
+      if (linkCopiedTimerRef.current) {
+        clearTimeout(linkCopiedTimerRef.current);
+      }
     };
   }, [apiReady, boardId, identity]);
 
@@ -590,13 +596,18 @@ export default function Whiteboard() {
             className="icon-btn"
             onClick={() => {
               const url = `${window.location.origin}${window.location.pathname}?board=${boardId}`;
-              navigator.clipboard.writeText(url).then(() => {
-                setLinkCopied(true);
-                if (linkCopiedTimerRef.current) {
-                  clearTimeout(linkCopiedTimerRef.current);
-                }
-                linkCopiedTimerRef.current = setTimeout(() => setLinkCopied(false), 2000);
-              });
+              navigator.clipboard
+                .writeText(url)
+                .then(() => {
+                  setLinkCopied(true);
+                  if (linkCopiedTimerRef.current) {
+                    clearTimeout(linkCopiedTimerRef.current);
+                  }
+                  linkCopiedTimerRef.current = setTimeout(() => setLinkCopied(false), 2000);
+                })
+                .catch(() => {
+                  console.error("Failed to copy collaboration link");
+                });
             }}
             title="Copy collaboration link"
             aria-label="Copy collaboration link"
