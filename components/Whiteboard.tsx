@@ -249,6 +249,7 @@ export default function Whiteboard() {
   const [currentOpacity, setCurrentOpacity] = useState(100);
   const [isOffline, setIsOffline] = useState(true);
   const [linkCopied, setLinkCopied] = useState(false);
+  const [onlineUsers, setOnlineUsers] = useState<{ socketId: string; name: string; color: string }[]>([]);
   const [apiReady, setApiReady] = useState(false);
   const excalidrawAPI = useRef<any>(null);
   const socketRef = useRef<ReturnType<typeof getSocket> | null>(null);
@@ -343,6 +344,11 @@ export default function Whiteboard() {
 
     function handleDisconnect() {
       setIsOffline(true);
+      setOnlineUsers([]);
+    }
+
+    function handlePresence({ users }: any) {
+      setOnlineUsers(users ?? []);
     }
 
     socket.on("connect", handleConnect);
@@ -351,6 +357,7 @@ export default function Whiteboard() {
     socket.on("scene-update", handleSceneUpdate);
     socket.on("cursor-update", handleCursorUpdate);
     socket.on("collaborator-left", handleCollaboratorLeft);
+    socket.on("presence", handlePresence);
 
     if (socket.connected) {
       handleConnect();
@@ -363,6 +370,7 @@ export default function Whiteboard() {
       socket.off("scene-update", handleSceneUpdate);
       socket.off("cursor-update", handleCursorUpdate);
       socket.off("collaborator-left", handleCollaboratorLeft);
+      socket.off("presence", handlePresence);
       if (sceneUpdateTimerRef.current) {
         clearTimeout(sceneUpdateTimerRef.current);
       }
@@ -538,6 +546,24 @@ export default function Whiteboard() {
                 </button>
               </div>
             </div>
+          </div>
+        ) : null}
+
+        {onlineUsers.length > 0 ? (
+          <div className="presence-bar" title={`${onlineUsers.length} online`}>
+            <div className="presence-avatars">
+              {onlineUsers.map((user) => (
+                <span
+                  key={user.socketId}
+                  className="presence-avatar"
+                  style={{ backgroundColor: user.color }}
+                  title={user.name}
+                >
+                  {(user.name || "?").charAt(0).toUpperCase()}
+                </span>
+              ))}
+            </div>
+            <span className="presence-count">{onlineUsers.length} online</span>
           </div>
         ) : null}
 
@@ -851,6 +877,60 @@ export default function Whiteboard() {
 
         .status-dot.offline {
           background: #e03131;
+        }
+
+        .presence-bar {
+          position: absolute;
+          top: 16px;
+          right: 16px;
+          z-index: 10;
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          padding: 6px 10px;
+          background: #ffffff;
+          border-radius: 12px;
+          box-shadow: 0 4px 12px rgba(15, 23, 42, 0.12), 0 2px 4px rgba(15, 23, 42, 0.08);
+        }
+
+        .presence-avatars {
+          display: flex;
+        }
+
+        .presence-avatar {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          width: 28px;
+          height: 28px;
+          border-radius: 50%;
+          color: #ffffff;
+          font-size: 0.75rem;
+          font-weight: 600;
+          border: 2px solid #ffffff;
+          margin-left: -8px;
+        }
+
+        .presence-avatar:first-child {
+          margin-left: 0;
+        }
+
+        .presence-count {
+          font-size: 0.8rem;
+          color: #1e1e1e;
+          white-space: nowrap;
+        }
+
+        @media (max-width: 640px) {
+          .presence-bar {
+            top: 8px;
+            right: 8px;
+            padding: 4px 8px;
+          }
+
+          .presence-count {
+            display: none;
+          }
         }
 
         .link-toast {

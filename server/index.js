@@ -46,6 +46,10 @@ function scheduleSave(boardId) {
   saveTimers.set(boardId, timer);
 }
 
+function broadcastPresence(boardId) {
+  io.to(boardId).emit("presence", { users: rooms.getUsers(boardId) });
+}
+
 io.on("connection", (socket) => {
   socket.on("join", async ({ boardId, name, color }) => {
     if (!boardId || typeof boardId !== "string") return;
@@ -54,6 +58,7 @@ io.on("connection", (socket) => {
     socket.data.boardId = boardId;
     socket.data.identity = { name, color };
     rooms.join(boardId, socket.id, { name, color });
+    broadcastPresence(boardId);
 
     try {
       const scene = await loadRoomScene(boardId);
@@ -93,6 +98,7 @@ io.on("connection", (socket) => {
 
     rooms.leave(boardId, socket.id);
     socket.to(boardId).emit("collaborator-left", { socketId: socket.id });
+    broadcastPresence(boardId);
   });
 });
 
