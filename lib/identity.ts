@@ -29,6 +29,10 @@ export function generateIdentity(): Identity {
 const STORAGE_KEY = "whiteboard-identity";
 
 export function getOrCreateIdentity(): Identity {
+  if (typeof window === "undefined") {
+    return { name: "", color: COLLABORATOR_COLORS[0] };
+  }
+
   const stored = sessionStorage.getItem(STORAGE_KEY);
   if (stored) {
     try {

@@ -18,6 +18,10 @@ export function getBoardIdFromUrl(search: string): string | null {
 }
 
 export function ensureBoardId(): string {
+  if (typeof window === "undefined") {
+    return "";
+  }
+
   const existing = getBoardIdFromUrl(window.location.search);
   if (existing) {
     return existing;
