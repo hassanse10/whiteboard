@@ -826,6 +826,34 @@ export default function Whiteboard() {
           background: #e5e7eb;
         }
 
+        .status-dot {
+          width: 8px;
+          height: 8px;
+          border-radius: 50%;
+          margin: 0 6px;
+          flex-shrink: 0;
+        }
+
+        .status-dot.online {
+          background: #2f9e44;
+        }
+
+        .status-dot.offline {
+          background: #e03131;
+        }
+
+        .link-toast {
+          position: absolute;
+          top: calc(100% + 8px);
+          right: 0;
+          padding: 4px 10px;
+          font-size: 0.8rem;
+          color: #ffffff;
+          background: #1e1e1e;
+          border-radius: 6px;
+          white-space: nowrap;
+        }
+
         @media (max-width: 640px) {
           .floating-toolbar {
             max-width: calc(100vw - 24px);
