@@ -20,11 +20,4 @@ describe("createRoomManager", () => {
     assert.deepEqual(rooms.getUsers("board1"), []);
   });
 
-  it("finds which room a socket belongs to", () => {
-    const rooms = createRoomManager();
-    rooms.join("board1", "socketA", { name: "Quick Fox 1", color: "#e03131" });
-
-    assert.equal(rooms.findRoomForSocket("socketA"), "board1");
-    assert.equal(rooms.findRoomForSocket("unknown"), null);
-  });
 });

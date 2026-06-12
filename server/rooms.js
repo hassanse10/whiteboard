@@ -28,12 +28,5 @@ export function createRoomManager() {
     }));
   }
 
-  function findRoomForSocket(socketId) {
-    for (const [boardId, room] of rooms.entries()) {
-      if (room.has(socketId)) return boardId;
-    }
-    return null;
-  }
-
-  return { join, leave, getUsers, findRoomForSocket };
+  return { join, leave, getUsers };
 }
