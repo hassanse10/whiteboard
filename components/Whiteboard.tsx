@@ -3,6 +3,9 @@
 import dynamic from "next/dynamic";
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import "@excalidraw/excalidraw/index.css";
+import { ensureBoardId } from "../lib/boardId";
+import { getOrCreateIdentity } from "../lib/identity";
+import { getSocket } from "../lib/socket";
 
 type ToolType =
   | "selection"
@@ -26,9 +29,12 @@ type ActiveToolState = {
   customType: null;
 };
 
+let reconcileElementsFn: any = null;
+
 const Excalidraw = dynamic<any>(
   async () => {
     const mod = await import("@excalidraw/excalidraw");
+    reconcileElementsFn = mod.reconcileElements;
     return mod.Excalidraw;
   },
   {
@@ -41,10 +47,6 @@ const supportedLanguages = ["en", "es", "fr", "de", "ja", "ko", "pt", "ru", "it"
 function normalizeLanguage(locale: string) {
   const code = locale.split("-")[0];
   return supportedLanguages.includes(code) ? code : "en";
-}
-
-function deserializeScene(value: string) {
-  return sanitizeScene(JSON.parse(decodeURIComponent(atob(value))));
 }
 
 function sanitizeScene(scene: any) {
@@ -81,6 +83,7 @@ type IconName =
   | "image"
   | "eraser"
   | "shapes"
+  | "share"
   | "layerToBack"
   | "layerBackward"
   | "layerForward"
@@ -144,6 +147,15 @@ const iconPaths: Record<IconName, ReactNode> = {
       <path d="M8.3 10a.7.7 0 0 1-.63-1.08l4.55-7.07a.7.7 0 0 1 1.25 0l4.55 7.07a.7.7 0 0 1-.63 1.08Z" />
       <rect x="3" y="14" width="7" height="7" rx="1" />
       <circle cx="17.5" cy="17.5" r="3.5" />
+    </>
+  ),
+  share: (
+    <>
+      <circle cx="18" cy="5" r="3" />
+      <circle cx="6" cy="12" r="3" />
+      <circle cx="18" cy="19" r="3" />
+      <path d="M8.6 13.5 15.4 17.5" />
+      <path d="M15.4 6.5 8.6 10.5" />
     </>
   ),
   layerToBack: (
@@ -219,14 +231,15 @@ const strokeWidths = [1, 2, 4];
 
 export default function Whiteboard() {
   const [langCode, setLangCode] = useState("en");
-  const [initialData, setInitialData] = useState<any>(
-    sanitizeScene({
-      elements: [],
-      appState: { theme: "light", exportBackground: true, viewBackgroundColor: "#ffffff", collaborators: [] }
-    })
+  const initialData = useMemo(
+    () =>
+      sanitizeScene({
+        elements: [],
+        appState: { theme: "light", exportBackground: true, viewBackgroundColor: "#ffffff", collaborators: [] }
+      }),
+    []
   );
   const sceneRef = useRef<any>(initialData);
-  const [boardKey, setBoardKey] = useState("whiteboard-default");
   const [activeTool, setActiveTool] = useState<ToolType>("selection");
   const [toolLocked, setToolLocked] = useState(false);
   const [hasSelection, setHasSelection] = useState(false);
@@ -234,7 +247,18 @@ export default function Whiteboard() {
   const [currentBackgroundColor, setCurrentBackgroundColor] = useState("transparent");
   const [currentStrokeWidth, setCurrentStrokeWidth] = useState(1);
   const [currentOpacity, setCurrentOpacity] = useState(100);
+  const [isOffline, setIsOffline] = useState(true);
+  const [linkCopied, setLinkCopied] = useState(false);
+  const [apiReady, setApiReady] = useState(false);
   const excalidrawAPI = useRef<any>(null);
+  const socketRef = useRef<ReturnType<typeof getSocket> | null>(null);
+  const remoteUpdateRef = useRef(false);
+  const sceneUpdateTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const cursorThrottleRef = useRef(0);
+  const linkCopiedTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const collaboratorsRef = useRef<Map<string, any>>(new Map());
+  const boardId = useMemo(() => ensureBoardId(), []);
+  const identity = useMemo(() => getOrCreateIdentity(), []);
 
   const showStylePanel = drawingTools.includes(activeTool) || (activeTool === "selection" && hasSelection);
 
@@ -258,33 +282,89 @@ export default function Whiteboard() {
   useEffect(() => {
     const browserLocale = navigator.language || navigator.languages?.[0] || "en";
     setLangCode(normalizeLanguage(browserLocale));
-
-    const params = new URLSearchParams(window.location.search);
-    const sceneParam = params.get("scene");
-
-    if (sceneParam) {
-      try {
-        const sharedScene = deserializeScene(sceneParam);
-        setInitialData(sharedScene);
-        sceneRef.current = sharedScene;
-        setBoardKey(`whiteboard-shared-${Date.now()}`);
-      } catch (error) {
-        console.warn("Unable to load shared scene", error);
-      }
-    } else {
-      const saved = localStorage.getItem("whiteboard-scene");
-      if (saved) {
-        try {
-          const savedScene = sanitizeScene(JSON.parse(saved));
-          setInitialData(savedScene);
-          sceneRef.current = savedScene;
-          setBoardKey(`whiteboard-saved-${Date.now()}`);
-        } catch {
-          // ignore invalid localStorage value
-        }
-      }
-    }
   }, []);
+
+  useEffect(() => {
+    if (!apiReady) return;
+
+    const socket = getSocket();
+    socketRef.current = socket;
+
+    function applyRemoteElements(elements: any[]) {
+      const api = excalidrawAPI.current;
+      if (!api || !reconcileElementsFn) return;
+
+      const localElements = api.getSceneElementsIncludingDeleted();
+      const appState = api.getAppState();
+      const reconciled = reconcileElementsFn(localElements, elements, appState);
+
+      remoteUpdateRef.current = true;
+      api.updateScene({ elements: reconciled });
+    }
+
+    function handleInit({ scene }: any) {
+      const api = excalidrawAPI.current;
+      if (!api) return;
+
+      const sanitized = sanitizeScene(scene);
+      sceneRef.current = sanitized;
+      remoteUpdateRef.current = true;
+      api.updateScene({ elements: sanitized.elements });
+    }
+
+    function handleSceneUpdate({ elements }: any) {
+      applyRemoteElements(elements);
+    }
+
+    function handleCursorUpdate({ socketId, pointer, name, color }: any) {
+      const api = excalidrawAPI.current;
+      if (!api) return;
+
+      collaboratorsRef.current.set(socketId, {
+        pointer,
+        username: name,
+        color: { background: color, stroke: color }
+      });
+      api.updateScene({ collaborators: new Map(collaboratorsRef.current) });
+    }
+
+    function handleCollaboratorLeft({ socketId }: any) {
+      const api = excalidrawAPI.current;
+      if (!api) return;
+
+      collaboratorsRef.current.delete(socketId);
+      api.updateScene({ collaborators: new Map(collaboratorsRef.current) });
+    }
+
+    function handleConnect() {
+      setIsOffline(false);
+      socket.emit("join", { boardId, name: identity.name, color: identity.color });
+    }
+
+    function handleDisconnect() {
+      setIsOffline(true);
+    }
+
+    socket.on("connect", handleConnect);
+    socket.on("disconnect", handleDisconnect);
+    socket.on("init", handleInit);
+    socket.on("scene-update", handleSceneUpdate);
+    socket.on("cursor-update", handleCursorUpdate);
+    socket.on("collaborator-left", handleCollaboratorLeft);
+
+    if (socket.connected) {
+      handleConnect();
+    }
+
+    return () => {
+      socket.off("connect", handleConnect);
+      socket.off("disconnect", handleDisconnect);
+      socket.off("init", handleInit);
+      socket.off("scene-update", handleSceneUpdate);
+      socket.off("cursor-update", handleCursorUpdate);
+      socket.off("collaborator-left", handleCollaboratorLeft);
+    };
+  }, [apiReady, boardId, identity]);
 
   const handleToolSelect = (tool: ToolType) => {
     setActiveTool(tool);
@@ -502,36 +582,79 @@ export default function Whiteboard() {
           >
             <ToolIcon name="shapes" />
           </button>
+
+          <div className="toolbar-divider" />
+
+          <button
+            type="button"
+            className="icon-btn"
+            onClick={() => {
+              const url = `${window.location.origin}${window.location.pathname}?board=${boardId}`;
+              navigator.clipboard.writeText(url).then(() => {
+                setLinkCopied(true);
+                if (linkCopiedTimerRef.current) {
+                  clearTimeout(linkCopiedTimerRef.current);
+                }
+                linkCopiedTimerRef.current = setTimeout(() => setLinkCopied(false), 2000);
+              });
+            }}
+            title="Copy collaboration link"
+            aria-label="Copy collaboration link"
+          >
+            <ToolIcon name="share" />
+          </button>
+
+          <span className={isOffline ? "status-dot offline" : "status-dot online"} title={isOffline ? "Offline" : "Connected"} />
+
+          {linkCopied ? <span className="link-toast">Link copied</span> : null}
         </div>
 
         <div className="whiteboard-wrapper">
           <Excalidraw
-            key={boardKey}
             initialData={initialData}
             langCode={langCode}
             UIOptions={uiOptions}
             excalidrawAPI={(api: any) => {
               excalidrawAPI.current = api;
+              setApiReady(true);
             }}
             onPointerDown={(activeTool: any) => {
               if (activeTool?.type) {
                 setActiveTool(activeTool.type);
               }
             }}
+            onPointerUpdate={(payload: any) => {
+              const now = Date.now();
+              if (now - cursorThrottleRef.current < 50) return;
+              cursorThrottleRef.current = now;
+
+              socketRef.current?.emit("cursor-update", {
+                pointer: payload.pointer,
+                name: identity.name,
+                color: identity.color
+              });
+            }}
             onChange={(elements: any, appState: any) => {
               const scene = sanitizeScene({ elements, appState });
               sceneRef.current = scene;
-              try {
-                localStorage.setItem("whiteboard-scene", JSON.stringify(scene));
-              } catch {
-                // ignore storage failures
-              }
 
               setHasSelection(Object.values(appState.selectedElementIds || {}).some(Boolean));
               setCurrentStrokeColor(appState.currentItemStrokeColor ?? "#1e1e1e");
               setCurrentBackgroundColor(appState.currentItemBackgroundColor ?? "transparent");
               setCurrentStrokeWidth(appState.currentItemStrokeWidth ?? 1);
               setCurrentOpacity(appState.currentItemOpacity ?? 100);
+
+              if (remoteUpdateRef.current) {
+                remoteUpdateRef.current = false;
+                return;
+              }
+
+              if (sceneUpdateTimerRef.current) {
+                clearTimeout(sceneUpdateTimerRef.current);
+              }
+              sceneUpdateTimerRef.current = setTimeout(() => {
+                socketRef.current?.emit("scene-update", { elements });
+              }, 300);
             }}
           />
         </div>
