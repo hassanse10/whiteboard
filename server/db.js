@@ -30,3 +30,11 @@ export async function saveScene(boardId, scene) {
     [boardId, JSON.stringify(scene)]
   );
 }
+
+export async function deleteInactiveBoards(maxAgeMs) {
+  const result = await pool.query(
+    "delete from boards where updated_at < now() - ($1 || ' milliseconds')::interval",
+    [maxAgeMs]
+  );
+  return result.rowCount;
+}

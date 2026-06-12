@@ -2,12 +2,14 @@ import express from "express";
 import { createServer } from "http";
 import { Server } from "socket.io";
 import cors from "cors";
-import { ensureSchema, getScene, saveScene } from "./db.js";
+import { ensureSchema, getScene, saveScene, deleteInactiveBoards } from "./db.js";
 import { createRoomManager } from "./rooms.js";
 
 const PORT = process.env.PORT || 3001;
 const CORS_ORIGIN = process.env.CORS_ORIGIN || "*";
 const SAVE_DEBOUNCE_MS = 2000;
+const INACTIVE_BOARD_TTL_MS = 7 * 24 * 60 * 60 * 1000;
+const CLEANUP_INTERVAL_MS = 24 * 60 * 60 * 1000;
 
 const app = express();
 app.use(cors({ origin: CORS_ORIGIN }));
@@ -102,11 +104,25 @@ io.on("connection", (socket) => {
   });
 });
 
+function cleanupInactiveBoards() {
+  deleteInactiveBoards(INACTIVE_BOARD_TTL_MS)
+    .then((count) => {
+      if (count > 0) {
+        console.log(`Deleted ${count} inactive board(s)`);
+      }
+    })
+    .catch((err) => {
+      console.error("Failed to delete inactive boards", err);
+    });
+}
+
 ensureSchema()
   .then(() => {
     httpServer.listen(PORT, () => {
       console.log(`Realtime server listening on port ${PORT}`);
     });
+    cleanupInactiveBoards();
+    setInterval(cleanupInactiveBoards, CLEANUP_INTERVAL_MS);
   })
   .catch((err) => {
     console.error("Failed to initialize database schema", err);
