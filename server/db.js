@@ -17,7 +17,7 @@ export async function ensureSchema() {
 export async function getScene(boardId) {
   const result = await pool.query("select scene_data from boards where id = $1", [boardId]);
   if (result.rows.length === 0) {
-    return EMPTY_SCENE;
+    return { elements: [...EMPTY_SCENE.elements], appState: { ...EMPTY_SCENE.appState } };
   }
   return result.rows[0].scene_data;
 }
@@ -27,6 +27,6 @@ export async function saveScene(boardId, scene) {
     `insert into boards (id, scene_data, updated_at)
      values ($1, $2, now())
      on conflict (id) do update set scene_data = $2, updated_at = now()`,
-    [boardId, scene]
+    [boardId, JSON.stringify(scene)]
   );
 }
