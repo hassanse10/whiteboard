@@ -63,11 +63,13 @@ type ActiveToolState = {
 };
 
 let reconcileElementsFn: any = null;
+let exportToCanvasFn: any = null;
 
 const Excalidraw = dynamic<any>(
   async () => {
     const mod = await import("@excalidraw/excalidraw");
     reconcileElementsFn = mod.reconcileElements;
+    exportToCanvasFn = mod.exportToCanvas;
     return mod.Excalidraw;
   },
   {
@@ -118,6 +120,7 @@ type IconName =
   | "shapes"
   | "share"
   | "video"
+  | "pdf"
   | "layerToBack"
   | "layerBackward"
   | "layerForward"
@@ -180,6 +183,14 @@ const iconPaths: Record<IconName, ReactNode> = {
     <>
       <rect x="2" y="5" width="14" height="14" rx="2" />
       <path d="m16 10 6-4v12l-6-4Z" />
+    </>
+  ),
+  pdf: (
+    <>
+      <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z" />
+      <path d="M14 2v6h6" />
+      <path d="M12 18v-5" />
+      <path d="m9.5 15.5 2.5 2.5 2.5-2.5" />
     </>
   ),
   shapes: (
@@ -547,6 +558,47 @@ export default function Whiteboard() {
     excalidrawAPI.current?.setActiveTool({ type: activeTool, customType: null, locked: next });
   };
 
+  const handleExportPdf = async () => {
+    const api = excalidrawAPI.current;
+    if (!api || !exportToCanvasFn) return;
+
+    const elements = api.getSceneElements();
+    const files = api.getFiles();
+    const appState = api.getAppState();
+    const exportAppState = { exportBackground: true, viewBackgroundColor: appState.viewBackgroundColor || "#ffffff" };
+
+    const frames = elements.filter((el: any) => el.type === "frame" || el.type === "magicframe");
+    const selectedIds = appState.selectedElementIds || {};
+    const selected = elements.filter((el: any) => selectedIds[el.id]);
+
+    let canvases: HTMLCanvasElement[];
+    if (frames.length > 0) {
+      canvases = [];
+      for (const frame of frames) {
+        const canvas = await exportToCanvasFn({ elements, appState: exportAppState, files, exportingFrame: frame });
+        canvases.push(canvas);
+      }
+    } else if (selected.length > 0) {
+      canvases = [await exportToCanvasFn({ elements: selected, appState: exportAppState, files })];
+    } else {
+      canvases = [await exportToCanvasFn({ elements, appState: exportAppState, files })];
+    }
+
+    const { jsPDF } = await import("jspdf");
+    let pdf: any = null;
+
+    for (const canvas of canvases) {
+      const orientation = canvas.width >= canvas.height ? "landscape" : "portrait";
+      const page = pdf
+        ? pdf.addPage([canvas.width, canvas.height], orientation)
+        : (pdf = new jsPDF({ orientation, unit: "px", format: [canvas.width, canvas.height] }));
+      void page;
+      pdf.addImage(canvas.toDataURL("image/png"), "PNG", 0, 0, canvas.width, canvas.height);
+    }
+
+    pdf.save(`whiteboard-${boardId}.pdf`);
+  };
+
   const applyStyle = (property: "strokeColor" | "backgroundColor" | "strokeWidth" | "opacity", value: any) => {
     const api = excalidrawAPI.current;
     if (!api) return;
@@ -797,6 +849,16 @@ export default function Whiteboard() {
             aria-label="Copy collaboration link"
           >
             <ToolIcon name="share" />
+          </button>
+
+          <button
+            type="button"
+            className="icon-btn"
+            onClick={handleExportPdf}
+            title="Export to PDF (frames, selection, or whole board)"
+            aria-label="Export to PDF"
+          >
+            <ToolIcon name="pdf" />
           </button>
 
           <span className={isOffline ? "status-dot offline" : "status-dot online"} title={isOffline ? "Offline" : "Connected"} />
