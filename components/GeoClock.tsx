@@ -29,8 +29,8 @@ export default function GeoClock() {
       <style jsx>{`
         .geo-clock {
           position: absolute;
-          top: 16px;
-          left: 16px;
+          top: 64px;
+          right: 16px;
           z-index: 10;
           display: flex;
           align-items: center;
@@ -56,8 +56,8 @@ export default function GeoClock() {
 
         @media (max-width: 640px) {
           .geo-clock {
-            top: 8px;
-            left: 8px;
+            top: 56px;
+            right: 8px;
             padding: 4px 10px;
           }
 
