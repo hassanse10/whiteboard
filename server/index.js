@@ -16,7 +16,11 @@ app.use(cors({ origin: CORS_ORIGIN }));
 app.get("/health", (req, res) => res.json({ status: "ok" }));
 
 const httpServer = createServer(app);
-const io = new Server(httpServer, { cors: { origin: CORS_ORIGIN } });
+const io = new Server(httpServer, {
+  cors: { origin: CORS_ORIGIN },
+  // Default 1MB is too small for image files sent as base64 dataURLs.
+  maxHttpBufferSize: 15 * 1024 * 1024
+});
 
 const rooms = createRoomManager();
 const roomScenes = new Map();
