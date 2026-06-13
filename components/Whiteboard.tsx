@@ -6,6 +6,8 @@ import "@excalidraw/excalidraw/index.css";
 import { ensureBoardId } from "../lib/boardId";
 import { getOrCreateIdentity } from "../lib/identity";
 import { getSocket } from "../lib/socket";
+import { detectLanguageFromTimezone, getUserTimezone } from "../lib/geo";
+import GeoClock from "./GeoClock";
 
 type ToolType =
   | "selection"
@@ -281,6 +283,12 @@ export default function Whiteboard() {
   );
 
   useEffect(() => {
+    const geoLanguage = detectLanguageFromTimezone(getUserTimezone());
+    if (geoLanguage) {
+      setLangCode(geoLanguage);
+      return;
+    }
+
     const browserLocale = navigator.language || navigator.languages?.[0] || "en";
     setLangCode(normalizeLanguage(browserLocale));
   }, []);
@@ -457,6 +465,7 @@ export default function Whiteboard() {
   return (
     <div className="whiteboard-shell">
       <div className="board-wrapper">
+        <GeoClock />
         {showStylePanel ? (
           <div className="style-panel">
             <div className="panel-section">
