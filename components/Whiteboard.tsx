@@ -8,6 +8,7 @@ import { getOrCreateIdentity } from "../lib/identity";
 import { getSocket } from "../lib/socket";
 import { detectLanguageFromTimezone, getUserTimezone } from "../lib/geo";
 import GeoClock from "./GeoClock";
+import VideoCall from "./VideoCall";
 
 type ToolType =
   | "selection"
@@ -466,6 +467,7 @@ export default function Whiteboard() {
     <div className="whiteboard-shell">
       <div className="board-wrapper">
         <GeoClock />
+        <VideoCall identity={identity} />
         {showStylePanel ? (
           <div className="style-panel">
             <div className="panel-section">

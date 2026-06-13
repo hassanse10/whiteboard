@@ -94,15 +94,59 @@ io.on("connection", (socket) => {
     });
   });
 
+  socket.on("call-join", () => {
+    const boardId = socket.data.boardId;
+    if (!boardId) return;
+
+    const callRoom = callRoomName(boardId);
+    const existingSocketIds = io.sockets.adapter.rooms.get(callRoom);
+    const peers = [];
+    if (existingSocketIds) {
+      for (const socketId of existingSocketIds) {
+        const peerSocket = io.sockets.sockets.get(socketId);
+        peers.push({ socketId, ...(peerSocket?.data.identity || {}) });
+      }
+    }
+
+    socket.join(callRoom);
+    socket.emit("call-peers", { peers });
+    socket.to(callRoom).emit("call-peer-joined", { socketId: socket.id, ...(socket.data.identity || {}) });
+  });
+
+  socket.on("call-leave", () => {
+    leaveCallRoom(socket);
+  });
+
+  socket.on("call-signal", ({ to, signal }) => {
+    if (!to || typeof to !== "string") return;
+    io.to(to).emit("call-signal", { from: socket.id, signal });
+  });
+
   socket.on("disconnect", () => {
     const boardId = socket.data.boardId;
     if (!boardId) return;
 
+    leaveCallRoom(socket);
     rooms.leave(boardId, socket.id);
     socket.to(boardId).emit("collaborator-left", { socketId: socket.id });
     broadcastPresence(boardId);
   });
 });
+
+function callRoomName(boardId) {
+  return `${boardId}:call`;
+}
+
+function leaveCallRoom(socket) {
+  const boardId = socket.data.boardId;
+  if (!boardId) return;
+
+  const callRoom = callRoomName(boardId);
+  if (!socket.rooms.has(callRoom)) return;
+
+  socket.leave(callRoom);
+  socket.to(callRoom).emit("call-peer-left", { socketId: socket.id });
+}
 
 function cleanupInactiveBoards() {
   deleteInactiveBoards(INACTIVE_BOARD_TTL_MS)
