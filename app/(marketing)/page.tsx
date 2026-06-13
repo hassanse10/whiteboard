@@ -63,6 +63,12 @@ function FeatureIcon({ name }: { name: string }) {
         <path d="M5.42 10.83 L8.33 16.67 H2.5 Z" />
         <path d="M14.17 10.83 l2.92 2.92 -2.92 2.92 -2.92 -2.92 Z" />
       </>
+    ),
+    link: (
+      <>
+        <path d="M7 13a3 3 0 0 0 4.24 0l2.5-2.5a3 3 0 0 0-4.24-4.24l-.7.7" />
+        <path d="M13 7a3 3 0 0 0-4.24 0l-2.5 2.5a3 3 0 0 0 4.24 4.24l.7-.7" />
+      </>
     )
   };
   return (
@@ -341,17 +347,20 @@ export default function LandingPage() {
         <section id="showcase" className="section-pad">
           <div className="wrap showcase-grid">
             <div className="showcase-list">
-              <span className="sec-tag">Showcase</span>
+              <span className="sec-tag">See it in action</span>
               <h2 className="sec-title" style={{ marginBottom: 8 }}>
-                Built for fast-moving teams
+                A familiar canvas, made for many hands
               </h2>
+              <p className="sec-desc" style={{ textAlign: "left", marginTop: 4, marginBottom: 8 }}>
+                Scribl pairs the friendly, hand-drawn feel of a real whiteboard with rock-solid live collaboration. Pick a tool, start sketching, and your teammates are right there with you.
+              </p>
               <div className="show-item" style={{ marginTop: 16 }}>
                 <div className="show-icon">
-                  <FeatureIcon name="sync" />
+                  <FeatureIcon name="toolset" />
                 </div>
                 <div>
-                  <h3>Plan sprints visually</h3>
-                  <p>Map out user flows, backlog items, and milestones on one shared canvas.</p>
+                  <h3>Full sketch toolkit</h3>
+                  <p>Shapes, arrows, free-hand drawing, text and sticky notes — all with that loose, hand-drawn look.</p>
                 </div>
               </div>
               <div className="show-item">
@@ -359,17 +368,26 @@ export default function LandingPage() {
                   <FeatureIcon name="presence" />
                 </div>
                 <div>
-                  <h3>Run better workshops</h3>
-                  <p>Brainstorm live with remote teammates — everyone draws and writes at once.</p>
+                  <h3>Cursors with names</h3>
+                  <p>Each guest gets a random name and color, so you always know who&apos;s drawing what.</p>
                 </div>
               </div>
               <div className="show-item">
                 <div className="show-icon">
-                  <FeatureIcon name="autosave" />
+                  <FeatureIcon name="link" />
                 </div>
                 <div>
-                  <h3>Capture ideas instantly</h3>
-                  <p>Jot down a thought mid-call and it&apos;s saved automatically — pick it back up anytime.</p>
+                  <h3>One-click sharing</h3>
+                  <p>Every board has a unique URL. Copy it once and your whole team is in.</p>
+                </div>
+              </div>
+              <div className="show-item">
+                <div className="show-icon">
+                  <FeatureIcon name="videocall" />
+                </div>
+                <div>
+                  <h3>Drop in videos</h3>
+                  <p>Embed a YouTube or Vimeo clip straight onto the canvas and play it right where you&apos;re working.</p>
                 </div>
               </div>
             </div>
@@ -400,6 +418,53 @@ export default function LandingPage() {
                 <div className="cursor" style={{ top: "65%", left: "35%", animation: "roam3 10s ease-in-out infinite" }}>
                   <CursorIcon color="#6965db" />
                   <span className="cursor-label" style={{ background: "#6965db" }}>Sam</span>
+                </div>
+                <div
+                  style={{
+                    position: "absolute",
+                    top: 232,
+                    left: 50,
+                    width: 98,
+                    height: 62,
+                    borderRadius: 9,
+                    background: "#1e1e1e",
+                    border: "2px solid #fff",
+                    boxShadow: "var(--shadow-md)",
+                    display: "grid",
+                    placeItems: "center",
+                    transform: "rotate(-3deg)",
+                    zIndex: 4
+                  }}
+                >
+                  <svg width="26" height="26" viewBox="0 0 24 24" fill="none">
+                    <circle cx="12" cy="12" r="11" fill="rgba(255,255,255,.18)" />
+                    <path d="M10 8 L16.5 12 L10 16 Z" fill="#fff" />
+                  </svg>
+                </div>
+                <div
+                  style={{
+                    position: "absolute",
+                    bottom: 14,
+                    right: 14,
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 9,
+                    background: "#fff",
+                    border: "1px solid var(--line)",
+                    borderRadius: 13,
+                    padding: "7px 12px 7px 7px",
+                    boxShadow: "var(--shadow-md)",
+                    zIndex: 6
+                  }}
+                >
+                  <div style={{ display: "flex" }}>
+                    <span style={{ width: 26, height: 26, borderRadius: 8, border: "2px solid #fff", background: "#e64980", display: "grid", placeItems: "center", fontSize: 11, fontWeight: 800, color: "#fff" }}>R</span>
+                    <span style={{ width: 26, height: 26, borderRadius: 8, border: "2px solid #fff", marginLeft: -9, background: "#6965db", display: "grid", placeItems: "center", fontSize: 11, fontWeight: 800, color: "#fff" }}>S</span>
+                  </div>
+                  <span style={{ fontSize: 11.5, fontWeight: 700, color: "#e64980", display: "flex", alignItems: "center", gap: 6 }}>
+                    <span className="live-pill-dot" style={{ width: 6, height: 6, borderRadius: "50%", background: "#e64980", display: "inline-block" }} />
+                    on call
+                  </span>
                 </div>
               </div>
             </div>
