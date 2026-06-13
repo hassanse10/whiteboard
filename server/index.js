@@ -65,7 +65,10 @@ io.on("connection", (socket) => {
 
     try {
       const scene = await loadRoomScene(boardId);
-      socket.emit("init", { scene });
+      // Omit file data here - clients fetch images on demand via "request-files"
+      // once the corresponding elements are visible, instead of bulk-loading them.
+      const { files, ...sceneWithoutFiles } = scene;
+      socket.emit("init", { scene: sceneWithoutFiles });
     } catch (err) {
       console.error(`Failed to load scene for board ${boardId}`, err);
     }
