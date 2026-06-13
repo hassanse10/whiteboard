@@ -91,9 +91,6 @@ export default function VideoCall({ identity }: VideoCallProps) {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
       localStreamRef.current = stream;
-      if (localVideoRef.current) {
-        localVideoRef.current.srcObject = stream;
-      }
       setMicOn(true);
       setCamOn(true);
       setInCall(true);
@@ -103,6 +100,12 @@ export default function VideoCall({ identity }: VideoCallProps) {
       setError("Could not access camera or microphone");
     }
   }, []);
+
+  useEffect(() => {
+    if (inCall && localVideoRef.current && localStreamRef.current) {
+      localVideoRef.current.srcObject = localStreamRef.current;
+    }
+  }, [inCall]);
 
   useEffect(() => {
     const socket = getSocket();
