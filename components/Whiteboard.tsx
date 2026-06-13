@@ -429,6 +429,7 @@ export default function Whiteboard() {
       const reconciled = applyRemoteElements(elements);
       if (reconciled) {
         markSynced(elements);
+        requestVisibleFiles();
       }
     }
 
