@@ -25,6 +25,7 @@ const io = new Server(httpServer, {
 const rooms = createRoomManager();
 const roomScenes = new Map();
 const saveTimers = new Map();
+const roomPresenters = new Map();
 
 async function loadRoomScene(boardId) {
   if (!roomScenes.has(boardId)) {
@@ -76,6 +77,8 @@ io.on("connection", (socket) => {
     } catch (err) {
       console.error(`Failed to load scene for board ${boardId}`, err);
     }
+
+    socket.emit("presenter-update", { presenter: roomPresenters.get(boardId) || null });
   });
 
   socket.on("scene-update", ({ elements }) => {
@@ -127,6 +130,33 @@ io.on("connection", (socket) => {
     if (Object.keys(files).length > 0) {
       socket.emit("file-data", { files });
     }
+  });
+
+  socket.on("presenter-start", ({ name }) => {
+    const boardId = socket.data.boardId;
+    if (!boardId) return;
+
+    const presenter = { socketId: socket.id, name };
+    roomPresenters.set(boardId, presenter);
+    io.to(boardId).emit("presenter-update", { presenter });
+  });
+
+  socket.on("presenter-stop", () => {
+    const boardId = socket.data.boardId;
+    if (!boardId) return;
+
+    if (roomPresenters.get(boardId)?.socketId === socket.id) {
+      roomPresenters.delete(boardId);
+      io.to(boardId).emit("presenter-update", { presenter: null });
+    }
+  });
+
+  socket.on("presenter-section", ({ id, name, index }) => {
+    const boardId = socket.data.boardId;
+    if (!boardId) return;
+
+    if (roomPresenters.get(boardId)?.socketId !== socket.id) return;
+    socket.to(boardId).emit("presenter-section", { id, name, index });
   });
 
   socket.on("cursor-update", ({ pointer, name, color }) => {
@@ -181,6 +211,11 @@ io.on("connection", (socket) => {
     rooms.leave(boardId, socket.id);
     socket.to(boardId).emit("collaborator-left", { socketId: socket.id });
     broadcastPresence(boardId);
+
+    if (roomPresenters.get(boardId)?.socketId === socket.id) {
+      roomPresenters.delete(boardId);
+      socket.to(boardId).emit("presenter-update", { presenter: null });
+    }
   });
 });
 

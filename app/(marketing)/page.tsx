@@ -35,7 +35,35 @@ function FeatureIcon({ name }: { name: string }) {
     sync: <path d="M4 10a6 6 0 0 1 10-4.5M16 10a6 6 0 0 1-10 4.5M14 3v3h-3M6 17v-3h3" />,
     presence: <path d="M7 9a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5zM13 9a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5zM2 17c0-2.8 2.2-5 5-5s5 2.2 5 5M9 17c0-2.5 1.9-4.5 4.5-4.5S18 14.5 18 17" />,
     nosignup: <path d="M10 2l7 3v5c0 4.5-3 7.5-7 8-4-0.5-7-3.5-7-8V5z M7 10l2 2 4-4" />,
-    autosave: <path d="M4 4h9l3 3v9H4z M7 4v4h6V4M6 13h8" />
+    autosave: <path d="M4 4h9l3 3v9H4z M7 4v4h6V4M6 13h8" />,
+    videocall: (
+      <>
+        <rect x="2.5" y="5" width="10.83" height="10" rx="2.08" />
+        <path d="M13.33 8.33 L17.5 5.83 V14.17 L13.33 11.67 Z" fill="currentColor" stroke="none" />
+      </>
+    ),
+    presenter: (
+      <>
+        <rect x="2.5" y="3.33" width="15" height="10" rx="1.67" />
+        <path d="M8.75 6.25 L12.08 8.33 L8.75 10.42 Z" fill="currentColor" stroke="none" />
+        <path d="M10 13.33 v3.33 M6.67 17.5 h6.67" />
+      </>
+    ),
+    pdf: (
+      <>
+        <path d="M5.83 2.5 h5.83 l4.17 4.17 v7.5 a1.67 1.67 0 0 1-1.67 1.67 H5.83 a1.67 1.67 0 0 1-1.67-1.67 V4.17 a1.67 1.67 0 0 1 1.67-1.67 Z" />
+        <path d="M11.67 2.5 v4.17 h4.17" />
+        <path d="M10 9.17 v5 M7.92 12.08 L10 14.17 L12.08 12.08" />
+      </>
+    ),
+    toolset: (
+      <>
+        <rect x="2.5" y="2.92" width="5.83" height="5.83" rx="1" />
+        <circle cx="14.17" cy="5.83" r="3" />
+        <path d="M5.42 10.83 L8.33 16.67 H2.5 Z" />
+        <path d="M14.17 10.83 l2.92 2.92 -2.92 2.92 -2.92 -2.92 Z" />
+      </>
+    )
   };
   return (
     <svg width="22" height="22" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
@@ -242,6 +270,34 @@ export default function LandingPage() {
                 </div>
                 <h3>Auto-save</h3>
                 <p>Your board saves itself as you go. Quiet boards clear after 7 days, so nothing piles up.</p>
+              </div>
+              <div className="fcard">
+                <div className="ficon" style={{ background: "#fde6ef", color: "#e64980" }}>
+                  <FeatureIcon name="videocall" />
+                </div>
+                <h3>Built-in video calls</h3>
+                <p>Hop on a live call right inside the board — talk through ideas while you sketch, no extra apps needed.</p>
+              </div>
+              <div className="fcard">
+                <div className="ficon" style={{ background: "var(--violet-soft)", color: "var(--violet)" }}>
+                  <FeatureIcon name="presenter" />
+                </div>
+                <h3>Presenter mode</h3>
+                <p>Turn frames into slides and walk your team through the board step by step, in order.</p>
+              </div>
+              <div className="fcard">
+                <div className="ficon" style={{ background: "#e7f0ff", color: "var(--teal)" }}>
+                  <FeatureIcon name="pdf" />
+                </div>
+                <h3>Export to PDF</h3>
+                <p>Turn any frame, selection, or your whole canvas into a polished PDF in one click.</p>
+              </div>
+              <div className="fcard">
+                <div className="ficon" style={{ background: "#fff3bf", color: "var(--amber)" }}>
+                  <FeatureIcon name="toolset" />
+                </div>
+                <h3>Full creative toolset</h3>
+                <p>Shapes, arrows, sticky notes, freehand drawing, text, images, and embeds — everything to bring ideas to life.</p>
               </div>
             </div>
           </div>

@@ -117,8 +117,11 @@ type IconName =
   | "text"
   | "image"
   | "eraser"
-  | "shapes"
-  | "share"
+  | "frame"
+  | "link"
+  | "sections"
+  | "present"
+  | "stop"
   | "video"
   | "pdf"
   | "layerToBack"
@@ -193,22 +196,29 @@ const iconPaths: Record<IconName, ReactNode> = {
       <path d="m9.5 15.5 2.5 2.5 2.5-2.5" />
     </>
   ),
-  shapes: (
+  frame: (
     <>
-      <path d="M8.3 10a.7.7 0 0 1-.63-1.08l4.55-7.07a.7.7 0 0 1 1.25 0l4.55 7.07a.7.7 0 0 1-.63 1.08Z" />
-      <rect x="3" y="14" width="7" height="7" rx="1" />
-      <circle cx="17.5" cy="17.5" r="3.5" />
+      <path d="M3 7V3h4" />
+      <path d="M17 3h4v4" />
+      <path d="M21 17v4h-4" />
+      <path d="M7 21H3v-4" />
     </>
   ),
-  share: (
+  link: (
     <>
-      <circle cx="18" cy="5" r="3" />
-      <circle cx="6" cy="12" r="3" />
-      <circle cx="18" cy="19" r="3" />
-      <path d="M8.6 13.5 15.4 17.5" />
-      <path d="M15.4 6.5 8.6 10.5" />
+      <path d="M10 13a5 5 0 0 0 7.07 0l2.83-2.83a5 5 0 0 0-7.07-7.07l-1.5 1.5" />
+      <path d="M14 11a5 5 0 0 0-7.07 0L4.1 13.83a5 5 0 0 0 7.07 7.07l1.5-1.5" />
     </>
   ),
+  sections: (
+    <>
+      <rect x="3" y="3" width="18" height="6" rx="1.5" />
+      <rect x="3" y="11" width="18" height="4" rx="1.5" />
+      <rect x="3" y="17" width="18" height="4" rx="1.5" />
+    </>
+  ),
+  present: <path d="M6 3v18l14-9Z" />,
+  stop: <rect x="5" y="5" width="14" height="14" rx="1.5" />,
   layerToBack: (
     <>
       <path d="M12 5v9" />
@@ -303,6 +313,12 @@ export default function Whiteboard() {
   const [linkCopied, setLinkCopied] = useState(false);
   const [onlineUsers, setOnlineUsers] = useState<{ socketId: string; name: string; color: string }[]>([]);
   const [apiReady, setApiReady] = useState(false);
+  const [sections, setSections] = useState<any[]>([]);
+  const [sectionsOpen, setSectionsOpen] = useState(false);
+  const [isPresenting, setIsPresenting] = useState(false);
+  const [presenter, setPresenter] = useState<{ socketId: string; name: string } | null>(null);
+  const [presenterSection, setPresenterSection] = useState<{ id: string; name: string; index: number } | null>(null);
+  const [followPresenter, setFollowPresenter] = useState(true);
   const excalidrawAPI = useRef<any>(null);
   const socketRef = useRef<ReturnType<typeof getSocket> | null>(null);
   const remoteUpdateRef = useRef(false);
@@ -314,6 +330,9 @@ export default function Whiteboard() {
   const knownFileIdsRef = useRef<Set<string>>(new Set());
   const requestedFileIdsRef = useRef<Set<string>>(new Set());
   const cacheTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const isPresentingRef = useRef(false);
+  const followPresenterRef = useRef(true);
+  const sectionsSignatureRef = useRef("");
   const boardId = useMemo(() => ensureBoardId(), []);
   const identity = useMemo(() => getOrCreateIdentity(), []);
 
@@ -510,6 +529,31 @@ export default function Whiteboard() {
       setOnlineUsers(users ?? []);
     }
 
+    function handlePresenterUpdate({ presenter: nextPresenter }: any) {
+      setPresenter(nextPresenter ?? null);
+      if (!nextPresenter) {
+        setPresenterSection(null);
+      }
+      if (!nextPresenter || nextPresenter.socketId === socket.id) {
+        setIsPresenting(Boolean(nextPresenter && nextPresenter.socketId === socket.id));
+      } else {
+        setIsPresenting(false);
+      }
+    }
+
+    function handlePresenterSection({ id, name, index }: any) {
+      setPresenterSection({ id, name, index });
+
+      const api = excalidrawAPI.current;
+      if (!api || isPresentingRef.current || !followPresenterRef.current) return;
+
+      const elements = api.getSceneElements();
+      const frame = elements.find((el: any) => el.id === id);
+      if (frame) {
+        api.scrollToContent(frame, { fitToContent: true, animate: true });
+      }
+    }
+
     socket.on("connect", handleConnect);
     socket.on("disconnect", handleDisconnect);
     socket.on("init", handleInit);
@@ -518,6 +562,8 @@ export default function Whiteboard() {
     socket.on("cursor-update", handleCursorUpdate);
     socket.on("collaborator-left", handleCollaboratorLeft);
     socket.on("presence", handlePresence);
+    socket.on("presenter-update", handlePresenterUpdate);
+    socket.on("presenter-section", handlePresenterSection);
 
     const unsubscribeScroll = excalidrawAPI.current?.onScrollChange?.(handleScrollChange);
 
@@ -534,6 +580,8 @@ export default function Whiteboard() {
       socket.off("cursor-update", handleCursorUpdate);
       socket.off("collaborator-left", handleCollaboratorLeft);
       socket.off("presence", handlePresence);
+      socket.off("presenter-update", handlePresenterUpdate);
+      socket.off("presenter-section", handlePresenterSection);
       unsubscribeScroll?.();
       if (sceneUpdateTimerRef.current) {
         clearTimeout(sceneUpdateTimerRef.current);
@@ -546,6 +594,44 @@ export default function Whiteboard() {
       }
     };
   }, [apiReady, boardId, identity]);
+
+  useEffect(() => {
+    isPresentingRef.current = isPresenting;
+  }, [isPresenting]);
+
+  useEffect(() => {
+    followPresenterRef.current = followPresenter;
+  }, [followPresenter]);
+
+  const handleToggleSections = () => {
+    setSectionsOpen((open) => !open);
+  };
+
+  const handleTogglePresent = () => {
+    const socket = socketRef.current;
+    if (!socket) return;
+
+    if (isPresenting) {
+      socket.emit("presenter-stop");
+      setIsPresenting(false);
+    } else {
+      socket.emit("presenter-start", { name: identity.name });
+      setIsPresenting(true);
+    }
+  };
+
+  const handleSectionSelect = (section: any, index: number) => {
+    const api = excalidrawAPI.current;
+    if (!api) return;
+
+    api.scrollToContent(section, { fitToContent: true, animate: true });
+
+    if (isPresenting) {
+      const name = section.name || `Section ${index + 1}`;
+      socketRef.current?.emit("presenter-section", { id: section.id, name, index });
+      setPresenterSection({ id: section.id, name, index });
+    }
+  };
 
   const handleToolSelect = (tool: ToolType) => {
     setActiveTool(tool);
@@ -778,93 +864,164 @@ export default function Whiteboard() {
         ) : null}
 
         <div className="floating-toolbar">
-          <button
-            type="button"
-            className={toolLocked ? "icon-btn active" : "icon-btn"}
-            onClick={handleToggleLock}
-            title="Keep selected tool active after drawing"
-            aria-label="Toggle tool lock"
-          >
-            <ToolIcon name="lock" />
-          </button>
-          <button
-            type="button"
-            className={activeTool === "hand" ? "icon-btn active" : "icon-btn"}
-            onClick={() => handleToolSelect("hand")}
-            title="Hand (pan)"
-            aria-label="Hand tool"
-          >
-            <ToolIcon name="hand" />
-          </button>
-
-          <div className="toolbar-divider" />
-
-          {toolOptions.map((option) => (
+          <div className="toolbar-group">
             <button
-              key={option.tool}
               type="button"
-              className={option.tool === activeTool ? "icon-btn active" : "icon-btn"}
-              onClick={() => handleToolSelect(option.tool)}
-              title={`${option.label} (${option.shortcut})`}
-              aria-label={option.label}
+              className={toolLocked ? "icon-btn active" : "icon-btn"}
+              onClick={handleToggleLock}
+              title="Keep selected tool active after drawing"
+              aria-label="Toggle tool lock"
             >
-              <ToolIcon name={option.icon} />
-              <span className="shortcut">{option.shortcut}</span>
+              <ToolIcon name="lock" />
             </button>
-          ))}
+            <button
+              type="button"
+              className={activeTool === "hand" ? "icon-btn active" : "icon-btn"}
+              onClick={() => handleToolSelect("hand")}
+              title="Hand (pan)"
+              aria-label="Hand tool"
+            >
+              <ToolIcon name="hand" />
+            </button>
+          </div>
 
           <div className="toolbar-divider" />
 
-          <button
-            type="button"
-            className={activeTool === "frame" ? "icon-btn active" : "icon-btn"}
-            onClick={() => handleToolSelect("frame")}
-            title="More tools (frame)"
-            aria-label="More tools"
-          >
-            <ToolIcon name="shapes" />
-          </button>
+          <div className="toolbar-group">
+            {toolOptions.map((option) => (
+              <button
+                key={option.tool}
+                type="button"
+                className={option.tool === activeTool ? "icon-btn active" : "icon-btn"}
+                onClick={() => handleToolSelect(option.tool)}
+                title={`${option.label} (${option.shortcut})`}
+                aria-label={option.label}
+              >
+                <ToolIcon name={option.icon} />
+                <span className="shortcut">{option.shortcut}</span>
+              </button>
+            ))}
+          </div>
 
           <div className="toolbar-divider" />
 
-          <button
-            type="button"
-            className="icon-btn"
-            onClick={() => {
-              const url = `${window.location.origin}${window.location.pathname}?board=${boardId}`;
-              navigator.clipboard
-                .writeText(url)
-                .then(() => {
-                  setLinkCopied(true);
-                  if (linkCopiedTimerRef.current) {
-                    clearTimeout(linkCopiedTimerRef.current);
-                  }
-                  linkCopiedTimerRef.current = setTimeout(() => setLinkCopied(false), 2000);
-                })
-                .catch(() => {
-                  console.error("Failed to copy collaboration link");
-                });
-            }}
-            title="Copy collaboration link"
-            aria-label="Copy collaboration link"
-          >
-            <ToolIcon name="share" />
-          </button>
+          <div className="toolbar-group">
+            <button
+              type="button"
+              className={activeTool === "frame" ? "icon-btn active" : "icon-btn"}
+              onClick={() => handleToolSelect("frame")}
+              title="Frame tool (group elements into a frame)"
+              aria-label="Frame tool"
+            >
+              <ToolIcon name="frame" />
+            </button>
+            <button
+              type="button"
+              className={sectionsOpen ? "icon-btn active" : "icon-btn"}
+              onClick={handleToggleSections}
+              title="Sections (slide view)"
+              aria-label="Toggle sections panel"
+            >
+              <ToolIcon name="sections" />
+            </button>
+          </div>
 
-          <button
-            type="button"
-            className="icon-btn"
-            onClick={handleExportPdf}
-            title="Export to PDF (frames, selection, or whole board)"
-            aria-label="Export to PDF"
-          >
-            <ToolIcon name="pdf" />
-          </button>
+          <div className="toolbar-divider" />
+
+          <div className="toolbar-group">
+            <button
+              type="button"
+              className="icon-btn"
+              onClick={() => {
+                const url = `${window.location.origin}${window.location.pathname}?board=${boardId}`;
+                navigator.clipboard
+                  .writeText(url)
+                  .then(() => {
+                    setLinkCopied(true);
+                    if (linkCopiedTimerRef.current) {
+                      clearTimeout(linkCopiedTimerRef.current);
+                    }
+                    linkCopiedTimerRef.current = setTimeout(() => setLinkCopied(false), 2000);
+                  })
+                  .catch(() => {
+                    console.error("Failed to copy collaboration link");
+                  });
+              }}
+              title="Copy collaboration link"
+              aria-label="Copy collaboration link"
+            >
+              <ToolIcon name="link" />
+            </button>
+
+            <button
+              type="button"
+              className="icon-btn"
+              onClick={handleExportPdf}
+              title="Export to PDF (frames, selection, or whole board)"
+              aria-label="Export to PDF"
+            >
+              <ToolIcon name="pdf" />
+            </button>
+          </div>
+
+          <div className="toolbar-divider" />
 
           <span className={isOffline ? "status-dot offline" : "status-dot online"} title={isOffline ? "Offline" : "Connected"} />
 
           {linkCopied ? <span className="link-toast">Link copied</span> : null}
         </div>
+
+        {presenter && !isPresenting ? (
+          <div className="presenter-banner">
+            <span className="presenter-banner-text">
+              <strong>{presenter.name || "Someone"}</strong> is presenting
+              {presenterSection ? ` · ${presenterSection.name}` : ""}
+            </span>
+            <button
+              type="button"
+              className={followPresenter ? "presenter-banner-btn active" : "presenter-banner-btn"}
+              onClick={() => setFollowPresenter((follow) => !follow)}
+            >
+              {followPresenter ? "Following" : "Browse freely"}
+            </button>
+          </div>
+        ) : null}
+
+        {sectionsOpen ? (
+          <div className="sections-panel">
+            <div className="sections-header">
+              <span className="sections-title">Sections</span>
+              <button
+                type="button"
+                className={isPresenting ? "present-btn active" : "present-btn"}
+                onClick={handleTogglePresent}
+                title={isPresenting ? "Stop presenting" : "Start presenting"}
+              >
+                <ToolIcon name={isPresenting ? "stop" : "present"} />
+                {isPresenting ? "Stop" : "Present"}
+              </button>
+            </div>
+
+            {sections.length === 0 ? (
+              <p className="sections-empty">Add frames to the board to create sections.</p>
+            ) : (
+              <ul className="sections-list">
+                {sections.map((section, index) => (
+                  <li key={section.id}>
+                    <button
+                      type="button"
+                      className={presenterSection?.id === section.id ? "section-item active" : "section-item"}
+                      onClick={() => handleSectionSelect(section, index)}
+                    >
+                      <span className="section-index">{index + 1}</span>
+                      <span className="section-name">{section.name || `Section ${index + 1}`}</span>
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+        ) : null}
 
         <div className="whiteboard-wrapper">
           <Excalidraw
@@ -900,6 +1057,15 @@ export default function Whiteboard() {
               setCurrentBackgroundColor(appState.currentItemBackgroundColor ?? "transparent");
               setCurrentStrokeWidth(appState.currentItemStrokeWidth ?? 1);
               setCurrentOpacity(appState.currentItemOpacity ?? 100);
+
+              const frames = elements
+                .filter((el: any) => (el.type === "frame" || el.type === "magicframe") && !el.isDeleted)
+                .sort((a: any, b: any) => a.y - b.y || a.x - b.x);
+              const signature = frames.map((f: any) => `${f.id}:${f.name || ""}:${f.x}:${f.y}:${f.width}:${f.height}`).join("|");
+              if (signature !== sectionsSignatureRef.current) {
+                sectionsSignatureRef.current = signature;
+                setSections(frames);
+              }
 
               if (cacheTimerRef.current) {
                 clearTimeout(cacheTimerRef.current);
@@ -1059,6 +1225,12 @@ export default function Whiteboard() {
           box-shadow: 0 4px 12px rgba(15, 23, 42, 0.12), 0 2px 4px rgba(15, 23, 42, 0.08);
         }
 
+        .toolbar-group {
+          display: flex;
+          align-items: center;
+          gap: 2px;
+        }
+
         .icon-btn {
           position: relative;
           display: flex;
@@ -1071,7 +1243,7 @@ export default function Whiteboard() {
           background: transparent;
           border: none;
           color: #1e1e1e;
-          transition: background 0.15s ease, color 0.15s ease;
+          transition: background 0.15s ease, color 0.15s ease, box-shadow 0.15s ease;
         }
 
         .icon-btn:hover {
@@ -1081,6 +1253,19 @@ export default function Whiteboard() {
         .icon-btn.active {
           background: #e0dfff;
           color: #6965db;
+          box-shadow: inset 0 0 0 1.5px rgba(105, 101, 219, 0.45);
+        }
+
+        .icon-btn.active::after {
+          content: "";
+          position: absolute;
+          bottom: 3px;
+          left: 50%;
+          transform: translateX(-50%);
+          width: 14px;
+          height: 2px;
+          border-radius: 1px;
+          background: #6965db;
         }
 
         .icon-btn:focus-visible {
@@ -1106,6 +1291,7 @@ export default function Whiteboard() {
           height: 24px;
           margin: 0 2px;
           background: #e5e7eb;
+          flex-shrink: 0;
         }
 
         .status-dot {
@@ -1122,6 +1308,161 @@ export default function Whiteboard() {
 
         .status-dot.offline {
           background: #e03131;
+        }
+
+        .sections-panel {
+          position: absolute;
+          top: 72px;
+          left: 16px;
+          z-index: 10;
+          display: flex;
+          flex-direction: column;
+          width: 220px;
+          max-height: calc(100% - 96px);
+          padding: 10px;
+          background: #ffffff;
+          border-radius: 12px;
+          box-shadow: 0 4px 12px rgba(15, 23, 42, 0.12), 0 2px 4px rgba(15, 23, 42, 0.08);
+          overflow: hidden;
+        }
+
+        .sections-header {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          padding-bottom: 8px;
+          margin-bottom: 4px;
+          border-bottom: 1px solid #e5e7eb;
+        }
+
+        .sections-title {
+          font-size: 0.85rem;
+          font-weight: 700;
+          color: #1e1e1e;
+        }
+
+        .present-btn {
+          display: flex;
+          align-items: center;
+          gap: 4px;
+          padding: 4px 8px;
+          font-size: 0.75rem;
+          font-weight: 600;
+          color: #1e1e1e;
+          background: #f1f0ff;
+          border: none;
+          border-radius: 6px;
+          cursor: pointer;
+        }
+
+        .present-btn :global(svg) {
+          width: 14px;
+          height: 14px;
+        }
+
+        .present-btn.active {
+          background: #e03131;
+          color: #ffffff;
+        }
+
+        .sections-empty {
+          margin: 8px 0 0;
+          font-size: 0.8rem;
+          color: #9ca3af;
+        }
+
+        .sections-list {
+          display: flex;
+          flex-direction: column;
+          gap: 4px;
+          margin: 4px 0 0;
+          padding: 0;
+          list-style: none;
+          overflow-y: auto;
+        }
+
+        .section-item {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          width: 100%;
+          padding: 8px;
+          font-size: 0.85rem;
+          color: #1e1e1e;
+          text-align: left;
+          background: transparent;
+          border: none;
+          border-radius: 8px;
+          cursor: pointer;
+          transition: background 0.15s ease, color 0.15s ease;
+        }
+
+        .section-item:hover {
+          background: #f1f0ff;
+        }
+
+        .section-item.active {
+          background: #e0dfff;
+          color: #6965db;
+        }
+
+        .section-index {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          width: 22px;
+          height: 22px;
+          flex-shrink: 0;
+          font-size: 0.75rem;
+          font-weight: 700;
+          border-radius: 50%;
+          background: #f1f0ff;
+          color: #6965db;
+        }
+
+        .section-item.active .section-index {
+          background: #6965db;
+          color: #ffffff;
+        }
+
+        .section-name {
+          overflow: hidden;
+          text-overflow: ellipsis;
+          white-space: nowrap;
+        }
+
+        .presenter-banner {
+          position: absolute;
+          top: 72px;
+          left: 50%;
+          transform: translateX(-50%);
+          z-index: 10;
+          display: flex;
+          align-items: center;
+          gap: 10px;
+          padding: 8px 14px;
+          background: #1e1e1e;
+          color: #ffffff;
+          border-radius: 12px;
+          box-shadow: 0 4px 12px rgba(15, 23, 42, 0.18);
+          font-size: 0.85rem;
+          white-space: nowrap;
+        }
+
+        .presenter-banner-btn {
+          padding: 4px 10px;
+          font-size: 0.75rem;
+          font-weight: 600;
+          color: #1e1e1e;
+          background: #ffffff;
+          border: none;
+          border-radius: 6px;
+          cursor: pointer;
+        }
+
+        .presenter-banner-btn.active {
+          background: #6965db;
+          color: #ffffff;
         }
 
         .presence-bar {
