@@ -117,6 +117,7 @@ type IconName =
   | "eraser"
   | "shapes"
   | "share"
+  | "video"
   | "layerToBack"
   | "layerBackward"
   | "layerForward"
@@ -173,6 +174,12 @@ const iconPaths: Record<IconName, ReactNode> = {
       <path d="m7 21-4.3-4.3c-1-1-1-2.5 0-3.4l9.6-9.6c1-1 2.5-1 3.4 0l5.3 5.3c1 1 1 2.5 0 3.4L13 21" />
       <path d="M22 21H7" />
       <path d="m5 11 9 9" />
+    </>
+  ),
+  video: (
+    <>
+      <rect x="2" y="5" width="14" height="14" rx="2" />
+      <path d="m16 10 6-4v12l-6-4Z" />
     </>
   ),
   shapes: (
@@ -253,7 +260,8 @@ const toolOptions: ToolOption[] = [
   { label: "Draw", tool: "freedraw", icon: "pencil", shortcut: "7" },
   { label: "Text", tool: "text", icon: "text", shortcut: "8" },
   { label: "Image", tool: "image", icon: "image", shortcut: "9" },
-  { label: "Eraser", tool: "eraser", icon: "eraser", shortcut: "0" }
+  { label: "Eraser", tool: "eraser", icon: "eraser", shortcut: "0" },
+  { label: "Embed video", tool: "embeddable", icon: "video", shortcut: "e" }
 ];
 
 const drawingTools: ToolType[] = ["rectangle", "diamond", "ellipse", "arrow", "line", "freedraw", "text"];
