@@ -73,14 +73,53 @@ io.on("connection", (socket) => {
 
   socket.on("scene-update", ({ elements }) => {
     const boardId = socket.data.boardId;
-    if (!boardId) return;
+    if (!boardId || !Array.isArray(elements)) return;
 
     const scene = roomScenes.get(boardId) || { elements: [], appState: {} };
-    scene.elements = elements;
+    const byId = new Map(scene.elements.map((element) => [element.id, element]));
+
+    for (const element of elements) {
+      const existing = byId.get(element.id);
+      if (!existing || (element.version ?? 0) >= (existing.version ?? 0)) {
+        byId.set(element.id, element);
+      }
+    }
+
+    scene.elements = Array.from(byId.values());
     roomScenes.set(boardId, scene);
 
     socket.to(boardId).emit("scene-update", { elements, socketId: socket.id });
     scheduleSave(boardId);
+  });
+
+  socket.on("file-upload", ({ files }) => {
+    const boardId = socket.data.boardId;
+    if (!boardId || !files || typeof files !== "object") return;
+
+    const scene = roomScenes.get(boardId) || { elements: [], appState: {} };
+    scene.files = { ...(scene.files || {}), ...files };
+    roomScenes.set(boardId, scene);
+
+    socket.to(boardId).emit("file-data", { files });
+    scheduleSave(boardId);
+  });
+
+  socket.on("request-files", ({ fileIds }) => {
+    const boardId = socket.data.boardId;
+    if (!boardId || !Array.isArray(fileIds)) return;
+
+    const scene = roomScenes.get(boardId);
+    const available = scene?.files || {};
+    const files = {};
+    for (const fileId of fileIds) {
+      if (available[fileId]) {
+        files[fileId] = available[fileId];
+      }
+    }
+
+    if (Object.keys(files).length > 0) {
+      socket.emit("file-data", { files });
+    }
   });
 
   socket.on("cursor-update", ({ pointer, name, color }) => {

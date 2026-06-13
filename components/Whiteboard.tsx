@@ -7,8 +7,38 @@ import { ensureBoardId } from "../lib/boardId";
 import { getOrCreateIdentity } from "../lib/identity";
 import { getSocket } from "../lib/socket";
 import { detectLanguageFromTimezone, getUserTimezone } from "../lib/geo";
+import { loadCachedScene, saveCachedScene } from "../lib/sceneCache";
 import GeoClock from "./GeoClock";
 import VideoCall from "./VideoCall";
+
+const VIEWPORT_PRELOAD_MARGIN = 200;
+const CACHE_DEBOUNCE_MS = 1000;
+
+function getMissingVisibleFileIds(api: any): string[] {
+  const appState = api.getAppState();
+  const elements = api.getSceneElements();
+  const files = api.getFiles();
+  const zoomValue = appState.zoom?.value || 1;
+  const margin = VIEWPORT_PRELOAD_MARGIN / zoomValue;
+  const viewLeft = -appState.scrollX - margin;
+  const viewTop = -appState.scrollY - margin;
+  const viewRight = viewLeft + appState.width / zoomValue + margin * 2;
+  const viewBottom = viewTop + appState.height / zoomValue + margin * 2;
+
+  const missing = new Set<string>();
+  for (const element of elements) {
+    if (element.type !== "image" || !element.fileId || element.isDeleted) continue;
+    if (files[element.fileId]) continue;
+
+    const overlaps =
+      element.x < viewRight && element.x + element.width > viewLeft && element.y < viewBottom && element.y + element.height > viewTop;
+    if (overlaps) {
+      missing.add(element.fileId);
+    }
+  }
+
+  return Array.from(missing);
+}
 
 type ToolType =
   | "selection"
@@ -261,6 +291,10 @@ export default function Whiteboard() {
   const cursorThrottleRef = useRef(0);
   const linkCopiedTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const collaboratorsRef = useRef<Map<string, any>>(new Map());
+  const lastSyncedVersionsRef = useRef<Map<string, number>>(new Map());
+  const knownFileIdsRef = useRef<Set<string>>(new Set());
+  const requestedFileIdsRef = useRef<Set<string>>(new Set());
+  const cacheTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const boardId = useMemo(() => ensureBoardId(), []);
   const identity = useMemo(() => getOrCreateIdentity(), []);
 
@@ -297,12 +331,60 @@ export default function Whiteboard() {
   useEffect(() => {
     if (!apiReady) return;
 
+    let cancelled = false;
+    loadCachedScene(boardId).then((cached) => {
+      if (cancelled || !cached) return;
+
+      const api = excalidrawAPI.current;
+      if (!api || !reconcileElementsFn) return;
+
+      const localElements = api.getSceneElementsIncludingDeleted();
+      const appState = api.getAppState();
+      const reconciled = reconcileElementsFn(localElements, cached.elements, appState);
+
+      remoteUpdateRef.current = true;
+      api.updateScene({ elements: reconciled });
+
+      const cachedFiles = Object.values(cached.files || {});
+      if (cachedFiles.length > 0) {
+        api.addFiles(cachedFiles);
+        for (const fileId of Object.keys(cached.files)) {
+          knownFileIdsRef.current.add(fileId);
+        }
+      }
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [apiReady, boardId]);
+
+  useEffect(() => {
+    if (!apiReady) return;
+
     const socket = getSocket();
     socketRef.current = socket;
 
+    function markSynced(elements: any[]) {
+      for (const element of elements) {
+        lastSyncedVersionsRef.current.set(element.id, element.version);
+      }
+    }
+
+    function requestVisibleFiles() {
+      const api = excalidrawAPI.current;
+      if (!api) return;
+
+      const missing = getMissingVisibleFileIds(api).filter((fileId) => !requestedFileIdsRef.current.has(fileId));
+      if (missing.length === 0) return;
+
+      missing.forEach((fileId) => requestedFileIdsRef.current.add(fileId));
+      socket.emit("request-files", { fileIds: missing });
+    }
+
     function applyRemoteElements(elements: any[]) {
       const api = excalidrawAPI.current;
-      if (!api || !reconcileElementsFn) return;
+      if (!api || !reconcileElementsFn) return null;
 
       const localElements = api.getSceneElementsIncludingDeleted();
       const appState = api.getAppState();
@@ -310,20 +392,68 @@ export default function Whiteboard() {
 
       remoteUpdateRef.current = true;
       api.updateScene({ elements: reconciled });
+      return reconciled;
     }
 
     function handleInit({ scene }: any) {
       const api = excalidrawAPI.current;
-      if (!api) return;
+      if (!api || !reconcileElementsFn) return;
 
       const sanitized = sanitizeScene(scene);
-      sceneRef.current = sanitized;
+      const localElements = api.getSceneElementsIncludingDeleted();
+      const appState = api.getAppState();
+      const reconciled = reconcileElementsFn(localElements, sanitized.elements, appState);
+
+      sceneRef.current = { ...sanitized, elements: reconciled };
       remoteUpdateRef.current = true;
-      api.updateScene({ elements: sanitized.elements });
+      api.updateScene({ elements: reconciled });
+
+      markSynced(sanitized.elements);
+      for (const fileId of Object.keys(sanitized.files || {})) {
+        knownFileIdsRef.current.add(fileId);
+      }
+
+      // Re-send any locally newer edits the server doesn't know about yet
+      // (e.g. made while offline, restored from the local cache, or never acked).
+      const unsynced = reconciled.filter((element: any) => lastSyncedVersionsRef.current.get(element.id) !== element.version);
+      if (unsynced.length > 0) {
+        markSynced(unsynced);
+        socket.emit("scene-update", { elements: unsynced });
+      }
+
+      requestVisibleFiles();
     }
 
-    function handleSceneUpdate({ elements }: any) {
-      applyRemoteElements(elements);
+    function handleSceneUpdate({ elements, socketId }: any) {
+      if (socketId === socket.id) return;
+      const reconciled = applyRemoteElements(elements);
+      if (reconciled) {
+        markSynced(elements);
+      }
+    }
+
+    function handleFileData({ files }: any) {
+      const api = excalidrawAPI.current;
+      if (!api || !files) return;
+
+      const fileList = Object.values(files) as any[];
+      if (fileList.length === 0) return;
+
+      api.addFiles(fileList);
+      const scene = sceneRef.current || { elements: [], appState: {}, files: {} };
+      scene.files = { ...(scene.files || {}), ...files };
+      sceneRef.current = scene;
+
+      for (const fileId of Object.keys(files)) {
+        knownFileIdsRef.current.add(fileId);
+        requestedFileIdsRef.current.delete(fileId);
+      }
+
+      saveCachedScene(boardId, sceneRef.current);
+    }
+
+    function handleScrollChange() {
+      requestVisibleFiles();
     }
 
     function handleCursorUpdate({ socketId, pointer, name, color }: any) {
@@ -364,9 +494,12 @@ export default function Whiteboard() {
     socket.on("disconnect", handleDisconnect);
     socket.on("init", handleInit);
     socket.on("scene-update", handleSceneUpdate);
+    socket.on("file-data", handleFileData);
     socket.on("cursor-update", handleCursorUpdate);
     socket.on("collaborator-left", handleCollaboratorLeft);
     socket.on("presence", handlePresence);
+
+    const unsubscribeScroll = excalidrawAPI.current?.onScrollChange?.(handleScrollChange);
 
     if (socket.connected) {
       handleConnect();
@@ -377,11 +510,16 @@ export default function Whiteboard() {
       socket.off("disconnect", handleDisconnect);
       socket.off("init", handleInit);
       socket.off("scene-update", handleSceneUpdate);
+      socket.off("file-data", handleFileData);
       socket.off("cursor-update", handleCursorUpdate);
       socket.off("collaborator-left", handleCollaboratorLeft);
       socket.off("presence", handlePresence);
+      unsubscribeScroll?.();
       if (sceneUpdateTimerRef.current) {
         clearTimeout(sceneUpdateTimerRef.current);
+      }
+      if (cacheTimerRef.current) {
+        clearTimeout(cacheTimerRef.current);
       }
       if (linkCopiedTimerRef.current) {
         clearTimeout(linkCopiedTimerRef.current);
@@ -682,8 +820,8 @@ export default function Whiteboard() {
                 color: identity.color
               });
             }}
-            onChange={(elements: any, appState: any) => {
-              const scene = sanitizeScene({ elements, appState });
+            onChange={(elements: any, appState: any, files: any) => {
+              const scene = sanitizeScene({ elements, appState, files });
               sceneRef.current = scene;
 
               setHasSelection(Object.values(appState.selectedElementIds || {}).some(Boolean));
@@ -692,16 +830,41 @@ export default function Whiteboard() {
               setCurrentStrokeWidth(appState.currentItemStrokeWidth ?? 1);
               setCurrentOpacity(appState.currentItemOpacity ?? 100);
 
+              if (cacheTimerRef.current) {
+                clearTimeout(cacheTimerRef.current);
+              }
+              cacheTimerRef.current = setTimeout(() => {
+                saveCachedScene(boardId, scene);
+              }, CACHE_DEBOUNCE_MS);
+
               if (remoteUpdateRef.current) {
                 remoteUpdateRef.current = false;
                 return;
+              }
+
+              const newFileIds = Object.keys(files || {}).filter((fileId) => !knownFileIdsRef.current.has(fileId));
+              if (newFileIds.length > 0) {
+                const newFiles: Record<string, any> = {};
+                for (const fileId of newFileIds) {
+                  newFiles[fileId] = files[fileId];
+                  knownFileIdsRef.current.add(fileId);
+                }
+                socketRef.current?.emit("file-upload", { files: newFiles });
               }
 
               if (sceneUpdateTimerRef.current) {
                 clearTimeout(sceneUpdateTimerRef.current);
               }
               sceneUpdateTimerRef.current = setTimeout(() => {
-                socketRef.current?.emit("scene-update", { elements });
+                const changed = elements.filter(
+                  (element: any) => lastSyncedVersionsRef.current.get(element.id) !== element.version
+                );
+                if (changed.length === 0) return;
+
+                for (const element of changed) {
+                  lastSyncedVersionsRef.current.set(element.id, element.version);
+                }
+                socketRef.current?.emit("scene-update", { elements: changed });
               }, 300);
             }}
           />
