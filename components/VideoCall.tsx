@@ -23,6 +23,7 @@ export default function VideoCall({ identity }: VideoCallProps) {
   const [camOn, setCamOn] = useState(true);
   const [peers, setPeers] = useState<Record<string, Peer>>({});
   const [error, setError] = useState<string | null>(null);
+  const [callParticipants, setCallParticipants] = useState<{ socketId: string; name: string; color: string }[]>([]);
 
   const localStreamRef = useRef<MediaStream | null>(null);
   const localVideoRef = useRef<HTMLVideoElement>(null);
@@ -157,16 +158,22 @@ export default function VideoCall({ identity }: VideoCallProps) {
       cleanupPeer(socketId);
     };
 
+    const handleCallParticipants = ({ participants }: { participants: { socketId: string; name: string; color: string }[] }) => {
+      setCallParticipants(participants.filter((p) => p.socketId !== socket.id));
+    };
+
     socket.on("call-peers", handlePeers);
     socket.on("call-peer-joined", handlePeerJoined);
     socket.on("call-signal", handleSignal);
     socket.on("call-peer-left", handlePeerLeft);
+    socket.on("call-participants", handleCallParticipants);
 
     return () => {
       socket.off("call-peers", handlePeers);
       socket.off("call-peer-joined", handlePeerJoined);
       socket.off("call-signal", handleSignal);
       socket.off("call-peer-left", handlePeerLeft);
+      socket.off("call-participants", handleCallParticipants);
     };
   }, [createPeerConnection, cleanupPeer]);
 
@@ -200,10 +207,23 @@ export default function VideoCall({ identity }: VideoCallProps) {
   return (
     <div className="video-call">
       {!inCall ? (
-        <button type="button" className="call-toggle" onClick={joinCall} title="Start video call" aria-label="Start video call">
-          <CallIcon name="video" />
-          {error ? <span className="call-error">{error}</span> : null}
-        </button>
+        callParticipants.length > 0 ? (
+          <button type="button" className="call-join-banner" onClick={joinCall} title="Join video call" aria-label="Join video call">
+            <CallIcon name="video" />
+            <span>
+              {callParticipants.length === 1
+                ? `${callParticipants[0].name || "Someone"} is on a call`
+                : `${callParticipants.length} people on a call`}
+            </span>
+            <span className="call-join-cta">Join</span>
+            {error ? <span className="call-error">{error}</span> : null}
+          </button>
+        ) : (
+          <button type="button" className="call-toggle" onClick={joinCall} title="Start video call" aria-label="Start video call">
+            <CallIcon name="video" />
+            {error ? <span className="call-error">{error}</span> : null}
+          </button>
+        )
       ) : (
         <div className="call-panel">
           <div className="call-tiles">
@@ -282,6 +302,36 @@ export default function VideoCall({ identity }: VideoCallProps) {
           padding: 4px 8px;
           border-radius: 8px;
           box-shadow: 0 4px 12px rgba(15, 23, 42, 0.12);
+        }
+
+        .call-join-banner {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          border: none;
+          border-radius: 12px;
+          background: #4f46e5;
+          color: #ffffff;
+          padding: 8px 12px;
+          font-size: 0.82rem;
+          white-space: nowrap;
+          box-shadow: 0 4px 12px rgba(15, 23, 42, 0.18), 0 2px 4px rgba(15, 23, 42, 0.08);
+          cursor: pointer;
+        }
+
+        .call-join-banner:hover {
+          background: #4338ca;
+        }
+
+        .call-join-cta {
+          font-weight: 700;
+          text-decoration: underline;
+        }
+
+        @media (max-width: 640px) {
+          .call-join-banner span:not(.call-join-cta) {
+            display: none;
+          }
         }
 
         .call-panel {

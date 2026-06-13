@@ -61,6 +61,7 @@ io.on("connection", (socket) => {
     socket.data.identity = { name, color };
     rooms.join(boardId, socket.id, { name, color });
     broadcastPresence(boardId);
+    broadcastCallParticipants(boardId);
 
     try {
       const scene = await loadRoomScene(boardId);
@@ -111,6 +112,7 @@ io.on("connection", (socket) => {
     socket.join(callRoom);
     socket.emit("call-peers", { peers });
     socket.to(callRoom).emit("call-peer-joined", { socketId: socket.id, ...(socket.data.identity || {}) });
+    broadcastCallParticipants(boardId);
   });
 
   socket.on("call-leave", () => {
@@ -122,11 +124,14 @@ io.on("connection", (socket) => {
     io.to(to).emit("call-signal", { from: socket.id, signal });
   });
 
+  socket.on("disconnecting", () => {
+    leaveCallRoom(socket);
+  });
+
   socket.on("disconnect", () => {
     const boardId = socket.data.boardId;
     if (!boardId) return;
 
-    leaveCallRoom(socket);
     rooms.leave(boardId, socket.id);
     socket.to(boardId).emit("collaborator-left", { socketId: socket.id });
     broadcastPresence(boardId);
@@ -135,6 +140,23 @@ io.on("connection", (socket) => {
 
 function callRoomName(boardId) {
   return `${boardId}:call`;
+}
+
+function getCallParticipants(boardId) {
+  const callRoom = callRoomName(boardId);
+  const socketIds = io.sockets.adapter.rooms.get(callRoom);
+  const participants = [];
+  if (socketIds) {
+    for (const socketId of socketIds) {
+      const peerSocket = io.sockets.sockets.get(socketId);
+      participants.push({ socketId, ...(peerSocket?.data.identity || {}) });
+    }
+  }
+  return participants;
+}
+
+function broadcastCallParticipants(boardId) {
+  io.to(boardId).emit("call-participants", { participants: getCallParticipants(boardId) });
 }
 
 function leaveCallRoom(socket) {
@@ -146,6 +168,7 @@ function leaveCallRoom(socket) {
 
   socket.leave(callRoom);
   socket.to(callRoom).emit("call-peer-left", { socketId: socket.id });
+  broadcastCallParticipants(boardId);
 }
 
 function cleanupInactiveBoards() {
