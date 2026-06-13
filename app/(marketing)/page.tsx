@@ -2,23 +2,8 @@
 
 import { useEffect, useState } from "react";
 import { generateBoardId } from "../../lib/boardId";
-
-function LogoMark() {
-  return (
-    <svg width="32" height="32" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
-      <rect width="32" height="32" rx="9" fill="#6965db" />
-      <path
-        d="M9 21.5C11 17 14 12 17.5 10.5C19.5 9.6 21 11 20 13C18.7 15.7 15.5 18 12.5 19.5"
-        stroke="#fff"
-        strokeWidth="2.4"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        fill="none"
-      />
-      <circle cx="21.5" cy="21.5" r="1.6" fill="#fff" />
-    </svg>
-  );
-}
+import { SiteHeader } from "../../components/landing/SiteHeader";
+import { SiteFooter } from "../../components/landing/SiteFooter";
 
 function ToolIcon({ name }: { name: string }) {
   const paths: Record<string, JSX.Element> = {
@@ -108,30 +93,7 @@ export default function LandingPage() {
 
   return (
     <>
-      <header id="header" className={scrolled ? "scrolled" : ""}>
-        <div className="wrap nav">
-          <a href="#top" className="brand">
-            <LogoMark />
-            Scribl
-          </a>
-          <nav className="nav-links">
-            <a href="#features">Features</a>
-            <a href="#how">How it works</a>
-            <a href="#showcase">Showcase</a>
-            <a href="#" onClick={(e) => e.preventDefault()}>
-              GitHub
-            </a>
-          </nav>
-          <div className="nav-cta">
-            <a href="#how" className="nav-see-how">
-              See how
-            </a>
-            <button className="btn btn-primary" onClick={openStartModal}>
-              Start whiteboarding
-            </button>
-          </div>
-        </div>
-      </header>
+      <SiteHeader scrolled={scrolled} home onStart={openStartModal} />
 
       <main id="top">
         {/* ---------- hero ---------- */}
@@ -408,66 +370,7 @@ export default function LandingPage() {
         </section>
       </main>
 
-      {/* ---------- footer ---------- */}
-      <footer>
-        <div className="wrap foot-grid">
-          <div>
-            <a href="#top" className="foot-brand">
-              <LogoMark />
-              Scribl
-            </a>
-            <p>Draw together, instantly. A free real-time whiteboard for teams that think out loud.</p>
-          </div>
-          <div className="foot-col">
-            <h4>Product</h4>
-            <ul>
-              <li>
-                <a href="#" onClick={(e) => { e.preventDefault(); openStartModal(); }}>
-                  New board
-                </a>
-              </li>
-              <li>
-                <a href="#features">Features</a>
-              </li>
-              <li>
-                <a href="#how">How it works</a>
-              </li>
-            </ul>
-          </div>
-          <div className="foot-col">
-            <h4>Project</h4>
-            <ul>
-              <li>
-                <a href="#" onClick={(e) => e.preventDefault()}>GitHub</a>
-              </li>
-              <li>
-                <a href="#" onClick={(e) => e.preventDefault()}>Changelog</a>
-              </li>
-              <li>
-                <a href="#" onClick={(e) => e.preventDefault()}>Status</a>
-              </li>
-            </ul>
-          </div>
-          <div className="foot-col">
-            <h4>Connect</h4>
-            <ul>
-              <li>
-                <a href="mailto:hello@scribl.app">Contact</a>
-              </li>
-              <li>
-                <a href="#" onClick={(e) => e.preventDefault()}>Twitter</a>
-              </li>
-              <li>
-                <a href="#" onClick={(e) => e.preventDefault()}>Privacy</a>
-              </li>
-            </ul>
-          </div>
-        </div>
-        <div className="wrap foot-bottom">
-          <span>© {new Date().getFullYear()} Scribl</span>
-          <span>made with a steady-ish hand ✏️</span>
-        </div>
-      </footer>
+      <SiteFooter onNewBoard={openStartModal} />
 
       {/* ---------- modal ---------- */}
       <div className={`modal-overlay ${modalOpen ? "open" : ""}`} onClick={(e) => { if (e.target === e.currentTarget) setModalOpen(false); }}>
