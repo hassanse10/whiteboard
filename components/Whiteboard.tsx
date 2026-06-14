@@ -653,6 +653,7 @@ export default function Whiteboard() {
       if (!api) return;
 
       event.preventDefault();
+      event.stopPropagation();
 
       const appState = api.getAppState();
       const currentZoom = appState.zoom.value;
@@ -670,8 +671,8 @@ export default function Whiteboard() {
       });
     };
 
-    wrapper.addEventListener("wheel", handleWheelZoom, { passive: false });
-    return () => wrapper.removeEventListener("wheel", handleWheelZoom);
+    wrapper.addEventListener("wheel", handleWheelZoom, { passive: false, capture: true });
+    return () => wrapper.removeEventListener("wheel", handleWheelZoom, { capture: true });
   }, [apiReady]);
 
   const handleSectionSelect = (section: any, index: number) => {
