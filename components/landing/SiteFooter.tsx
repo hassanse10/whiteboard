@@ -9,7 +9,7 @@ export function SiteFooter({ onNewBoard }: { onNewBoard?: () => void }) {
         <div>
           <a href="/" className="foot-brand">
             <LogoMark />
-            Scribl
+            tablo
           </a>
           <p>Draw together, instantly. A free real-time whiteboard for teams that think out loud.</p>
         </div>
@@ -69,7 +69,7 @@ export function SiteFooter({ onNewBoard }: { onNewBoard?: () => void }) {
         </div>
       </div>
       <div className="wrap foot-bottom">
-        <span>© {new Date().getFullYear()} Scribl</span>
+        <span>© {new Date().getFullYear()} tablo</span>
         <span>made with a steady-ish hand ✏️</span>
       </div>
     </footer>

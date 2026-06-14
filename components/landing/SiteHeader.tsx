@@ -18,7 +18,7 @@ export function SiteHeader({
       <div className="wrap nav">
         <a href={home ? "#top" : "/"} className="brand">
           <LogoMark />
-          Scribl
+          tablo
         </a>
         <nav className="nav-links">
           <a href={anchor("#features")}>Features</a>

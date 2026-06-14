@@ -15,7 +15,7 @@ const plusJakarta = Plus_Jakarta_Sans({
 });
 
 export const metadata: Metadata = {
-  title: "Scribl — Draw together, instantly.",
+  title: "tablo — Draw together, instantly.",
   description: "A real-time collaborative whiteboard. No sign-up, no setup — just open a board and start sketching with anyone, anywhere."
 };
 

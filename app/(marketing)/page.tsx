@@ -244,7 +244,7 @@ export default function LandingPage() {
         <section id="features" className="section-pad">
           <div className="wrap">
             <div className="sec-head">
-              <span className="sec-tag">Why Scribl</span>
+              <span className="sec-tag">Why tablo</span>
               <h2 className="sec-title">Everything you need, nothing you don&apos;t</h2>
               <p className="sec-desc">A whiteboard that gets out of your way — fast to open, easy to share, and ready whenever inspiration strikes.</p>
             </div>
@@ -352,7 +352,7 @@ export default function LandingPage() {
                 A familiar canvas, made for many hands
               </h2>
               <p className="sec-desc" style={{ textAlign: "left", marginTop: 4, marginBottom: 8 }}>
-                Scribl pairs the friendly, hand-drawn feel of a real whiteboard with rock-solid live collaboration. Pick a tool, start sketching, and your teammates are right there with you.
+                tablo pairs the friendly, hand-drawn feel of a real whiteboard with rock-solid live collaboration. Pick a tool, start sketching, and your teammates are right there with you.
               </p>
               <div className="show-item" style={{ marginTop: 16 }}>
                 <div className="show-icon">
