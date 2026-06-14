@@ -3,8 +3,8 @@ import { SiteHeader } from "../../../components/landing/SiteHeader";
 import { SiteFooter } from "../../../components/landing/SiteFooter";
 
 export const metadata: Metadata = {
-  title: "Privacy Policy — Scribl",
-  description: "How Scribl handles your data."
+  title: "Privacy Policy — Tablo",
+  description: "How Tablo handles your data."
 };
 
 export default function PrivacyPage() {
@@ -18,7 +18,7 @@ export default function PrivacyPage() {
             <p className="legal-updated">Last updated: June 13, 2026</p>
 
             <p>
-              Scribl is designed to be used without an account, and we collect as little information as possible.
+              Tablo is designed to be used without an account, and we collect as little information as possible.
               This page explains what data we store and why.
             </p>
 
@@ -55,19 +55,19 @@ export default function PrivacyPage() {
 
             <h2>Cookies &amp; local storage</h2>
             <p>
-              Scribl uses your browser&apos;s local storage to remember your board identity (name and color) and
+              Tablo uses your browser&apos;s local storage to remember your board identity (name and color) and
               your most recent board. We do not use third-party tracking or advertising cookies.
             </p>
 
             <h2>Third parties</h2>
             <p>
-              We do not sell or share your data with third parties. Scribl may use infrastructure providers
+              We do not sell or share your data with third parties. Tablo may use infrastructure providers
               (such as hosting and database providers) solely to operate the service.
             </p>
 
             <h2>Changes to this policy</h2>
             <p>
-              We may update this policy from time to time. Continued use of Scribl after changes are posted means
+              We may update this policy from time to time. Continued use of Tablo after changes are posted means
               you accept the updated policy.
             </p>
 

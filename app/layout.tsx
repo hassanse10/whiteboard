@@ -2,6 +2,7 @@ import "./globals.css";
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
+  metadataBase: new URL("https://tablo.click"),
   title: "Whiteboard",
   description: "Simple responsive whiteboard with drawing and image placement",
   verification: {

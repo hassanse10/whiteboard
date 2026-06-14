@@ -3,14 +3,14 @@ import { SiteHeader } from "../../../components/landing/SiteHeader";
 import { SiteFooter } from "../../../components/landing/SiteFooter";
 
 export const metadata: Metadata = {
-  title: "FAQ — Scribl",
-  description: "Frequently asked questions about Scribl, the free real-time collaborative whiteboard."
+  title: "FAQ — Tablo",
+  description: "Frequently asked questions about Tablo, the free real-time collaborative whiteboard."
 };
 
 const faqs = [
   {
     q: "Do I need to create an account?",
-    a: "No. Scribl works with zero sign-up — click \"Start whiteboarding\" and you'll have a private board in seconds. Just share the link with anyone you want to collaborate with."
+    a: "No. Tablo works with zero sign-up — click \"Start whiteboarding\" and you'll have a private board in seconds. Just share the link with anyone you want to collaborate with."
   },
   {
     q: "How many people can join a board?",
@@ -21,16 +21,16 @@ const faqs = [
     a: "Each board has its own unguessable link. Anyone with the link can view and edit the board, so only share it with people you trust. Don't post board links publicly if they contain sensitive content."
   },
   {
-    q: "Does Scribl save my work?",
+    q: "Does Tablo save my work?",
     a: "Yes — your board auto-saves as you draw. If a board has no activity for 7 days, it's automatically deleted to keep things tidy, so be sure to revisit boards you want to keep."
   },
   {
-    q: "Can I use Scribl on mobile?",
-    a: "Scribl works in any modern browser, including on tablets and phones, though it's most comfortable on a larger screen with a mouse, trackpad, or stylus."
+    q: "Can I use Tablo on mobile?",
+    a: "Tablo works in any modern browser, including on tablets and phones, though it's most comfortable on a larger screen with a mouse, trackpad, or stylus."
   },
   {
-    q: "Is Scribl free?",
-    a: "Yes, Scribl is free to use."
+    q: "Is Tablo free?",
+    a: "Yes, Tablo is free to use."
   },
   {
     q: "What can I draw with?",
@@ -50,7 +50,7 @@ export default function FaqPage() {
         <section className="legal">
           <div className="wrap">
             <h1>Frequently asked questions</h1>
-            <p className="legal-updated">Everything you need to know about using Scribl.</p>
+            <p className="legal-updated">Everything you need to know about using Tablo.</p>
 
             <div className="faq-list">
               {faqs.map((item) => (

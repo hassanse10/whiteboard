@@ -171,7 +171,7 @@ export default function LandingPage() {
                   <span />
                   <span />
                 </div>
-                <div className="canvas-url">tablo.app/b/sunny-otter-42</div>
+                <div className="canvas-url">tablo.click/b/sunny-otter-42</div>
                 <div className="presence">
                   <div className="avatars">
                     <div className="avatar" style={{ background: "#6965db" }}>M</div>
@@ -400,7 +400,7 @@ export default function LandingPage() {
                   <span />
                   <span />
                 </div>
-                <div className="canvas-url">tablo.app/b/brave-comet-08</div>
+                <div className="canvas-url">tablo.click/b/brave-comet-08</div>
                 <div className="presence">
                   <div className="avatars">
                     <div className="avatar" style={{ background: "#e64980" }}>R</div>
