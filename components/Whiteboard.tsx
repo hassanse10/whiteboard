@@ -13,6 +13,27 @@ import VideoCall from "./VideoCall";
 
 const VIEWPORT_PRELOAD_MARGIN = 200;
 const CACHE_DEBOUNCE_MS = 1000;
+const MIN_ZOOM = 0.1;
+const MAX_ZOOM = 30;
+const ZOOM_WHEEL_SENSITIVITY = 0.002;
+
+function getStateForZoom(
+  { viewportX, viewportY, nextZoom }: { viewportX: number; viewportY: number; nextZoom: number },
+  appState: any
+) {
+  const appLayerX = viewportX - appState.offsetLeft;
+  const appLayerY = viewportY - appState.offsetTop;
+  const currentZoom = appState.zoom.value;
+  const baseScrollX = appState.scrollX + (appLayerX - appLayerX / currentZoom);
+  const baseScrollY = appState.scrollY + (appLayerY - appLayerY / currentZoom);
+  const zoomOffsetScrollX = -(appLayerX - appLayerX / nextZoom);
+  const zoomOffsetScrollY = -(appLayerY - appLayerY / nextZoom);
+  return {
+    scrollX: baseScrollX + zoomOffsetScrollX,
+    scrollY: baseScrollY + zoomOffsetScrollY,
+    zoom: { value: nextZoom }
+  };
+}
 
 function getMissingVisibleFileIds(api: any): string[] {
   const appState = api.getAppState();
@@ -320,6 +341,7 @@ export default function Whiteboard() {
   const [presenterSection, setPresenterSection] = useState<{ id: string; name: string; index: number } | null>(null);
   const [followPresenter, setFollowPresenter] = useState(true);
   const excalidrawAPI = useRef<any>(null);
+  const wrapperRef = useRef<HTMLDivElement>(null);
   const socketRef = useRef<ReturnType<typeof getSocket> | null>(null);
   const remoteUpdateRef = useRef(false);
   const sceneUpdateTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -619,6 +641,38 @@ export default function Whiteboard() {
       setIsPresenting(true);
     }
   };
+
+  useEffect(() => {
+    const wrapper = wrapperRef.current;
+    if (!wrapper) return;
+
+    const handleWheelZoom = (event: WheelEvent) => {
+      if (event.ctrlKey || event.metaKey || event.shiftKey) return;
+
+      const api = excalidrawAPI.current;
+      if (!api) return;
+
+      event.preventDefault();
+
+      const appState = api.getAppState();
+      const currentZoom = appState.zoom.value;
+      const nextZoom = Math.min(
+        MAX_ZOOM,
+        Math.max(MIN_ZOOM, currentZoom * Math.exp(-event.deltaY * ZOOM_WHEEL_SENSITIVITY))
+      );
+      if (nextZoom === currentZoom) return;
+
+      api.updateScene({
+        appState: getStateForZoom(
+          { viewportX: event.clientX, viewportY: event.clientY, nextZoom },
+          appState
+        )
+      });
+    };
+
+    wrapper.addEventListener("wheel", handleWheelZoom, { passive: false });
+    return () => wrapper.removeEventListener("wheel", handleWheelZoom);
+  }, [apiReady]);
 
   const handleSectionSelect = (section: any, index: number) => {
     const api = excalidrawAPI.current;
@@ -1023,7 +1077,7 @@ export default function Whiteboard() {
           </div>
         ) : null}
 
-        <div className="whiteboard-wrapper">
+        <div className="whiteboard-wrapper" ref={wrapperRef}>
           <Excalidraw
             initialData={initialData}
             langCode={langCode}
