@@ -13,7 +13,8 @@ function ToolIcon({ name }: { name: string }) {
     ellipse: <ellipse cx="10" cy="10" rx="6" ry="4" />,
     text: <path d="M5 4h10M10 4v12" />,
     note: <path d="M4 4h12v12H4z M4 13h6v3" />,
-    eraser: <path d="M4 13l6-6 6 6-3 3H7z" />
+    eraser: <path d="M4 13l6-6 6 6-3 3H7z" />,
+    arrow: <path d="M3 10h13M11 5l5 5-5 5" />
   };
   return (
     <svg width="18" height="18" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
@@ -170,7 +171,7 @@ export default function LandingPage() {
                   <span />
                   <span />
                 </div>
-                <div className="canvas-url">scribl.app/b/sunny-otter-42</div>
+                <div className="canvas-url">tablo.app/b/sunny-otter-42</div>
                 <div className="presence">
                   <div className="avatars">
                     <div className="avatar" style={{ background: "#6965db" }}>M</div>
@@ -393,12 +394,42 @@ export default function LandingPage() {
             </div>
 
             <div className="showcase-visual">
-              <div className="sv-top">
-                <span />
-                <span />
-                <span />
+              <div className="canvas-top">
+                <div className="traffic">
+                  <span />
+                  <span />
+                  <span />
+                </div>
+                <div className="canvas-url">tablo.app/b/brave-comet-08</div>
+                <div className="presence">
+                  <div className="avatars">
+                    <div className="avatar" style={{ background: "#e64980" }}>R</div>
+                    <div className="avatar" style={{ background: "#6965db" }}>S</div>
+                  </div>
+                  <span className="live-pill">
+                    <span className="dot" /> 2 live
+                  </span>
+                </div>
               </div>
               <div className="sv-body">
+                <div className="toolbar">
+                  <div className="tool">
+                    <ToolIcon name="select" />
+                  </div>
+                  <div className="tool">
+                    <ToolIcon name="rect" />
+                  </div>
+                  <div className="tool active">
+                    <ToolIcon name="pen" />
+                  </div>
+                  <div className="tool">
+                    <ToolIcon name="arrow" />
+                  </div>
+                  <div className="sep" />
+                  <div className="tool">
+                    <ToolIcon name="note" />
+                  </div>
+                </div>
                 <div className="sk sk-rect" style={{ top: "12%", left: "10%", width: 180, height: 90 }}>
                   User flow
                 </div>
