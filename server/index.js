@@ -26,6 +26,11 @@ const rooms = createRoomManager();
 const roomScenes = new Map();
 const saveTimers = new Map();
 const roomPresenters = new Map();
+const roomTimers = new Map();
+
+function defaultTimer() {
+  return { duration: 300, remaining: 300, startedAt: 0, status: "idle", setBy: "" };
+}
 
 async function loadRoomScene(boardId) {
   if (!roomScenes.has(boardId)) {
@@ -79,6 +84,62 @@ io.on("connection", (socket) => {
     }
 
     socket.emit("presenter-update", { presenter: roomPresenters.get(boardId) || null });
+    socket.emit("timer-sync", roomTimers.get(boardId) || defaultTimer());
+  });
+
+  socket.on("timer-set", ({ duration, name }) => {
+    const boardId = socket.data.boardId;
+    if (!boardId || typeof duration !== "number" || duration <= 0) return;
+    const timer = { duration, remaining: duration, startedAt: 0, status: "idle", setBy: name || "" };
+    roomTimers.set(boardId, timer);
+    io.to(boardId).emit("timer-sync", timer);
+  });
+
+  socket.on("timer-start", () => {
+    const boardId = socket.data.boardId;
+    if (!boardId) return;
+    const timer = roomTimers.get(boardId) || defaultTimer();
+    if (timer.status === "finished" || timer.remaining <= 0) return;
+    timer.startedAt = Date.now();
+    timer.status = "running";
+    roomTimers.set(boardId, timer);
+    io.to(boardId).emit("timer-sync", timer);
+  });
+
+  socket.on("timer-pause", () => {
+    const boardId = socket.data.boardId;
+    if (!boardId) return;
+    const timer = roomTimers.get(boardId);
+    if (!timer || timer.status !== "running") return;
+    const elapsed = (Date.now() - timer.startedAt) / 1000;
+    timer.remaining = Math.max(0, timer.remaining - elapsed);
+    timer.startedAt = 0;
+    timer.status = "paused";
+    roomTimers.set(boardId, timer);
+    io.to(boardId).emit("timer-sync", timer);
+  });
+
+  socket.on("timer-reset", () => {
+    const boardId = socket.data.boardId;
+    if (!boardId) return;
+    const timer = roomTimers.get(boardId) || defaultTimer();
+    timer.remaining = timer.duration;
+    timer.startedAt = 0;
+    timer.status = "idle";
+    roomTimers.set(boardId, timer);
+    io.to(boardId).emit("timer-sync", timer);
+  });
+
+  socket.on("timer-finish", () => {
+    const boardId = socket.data.boardId;
+    if (!boardId) return;
+    const timer = roomTimers.get(boardId);
+    if (!timer || timer.status !== "running") return;
+    timer.remaining = 0;
+    timer.startedAt = 0;
+    timer.status = "finished";
+    roomTimers.set(boardId, timer);
+    io.to(boardId).emit("timer-sync", timer);
   });
 
   socket.on("scene-update", ({ elements }) => {

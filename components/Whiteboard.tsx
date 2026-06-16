@@ -9,6 +9,7 @@ import { getSocket } from "../lib/socket";
 import { detectLanguageFromTimezone, getUserTimezone } from "../lib/geo";
 import { loadCachedScene, saveCachedScene } from "../lib/sceneCache";
 import GeoClock from "./GeoClock";
+import CountdownTimer from "./CountdownTimer";
 import VideoCall from "./VideoCall";
 
 const VIEWPORT_PRELOAD_MARGIN = 200;
@@ -845,7 +846,10 @@ export default function Whiteboard() {
   return (
     <div className="whiteboard-shell">
       <div className="board-wrapper">
-        <GeoClock />
+        <div className="right-clock-row">
+          <CountdownTimer userName={identity.name} />
+          <GeoClock />
+        </div>
         <VideoCall identity={identity} />
         {showStylePanel ? (
           <div className="style-panel">
@@ -1654,6 +1658,16 @@ export default function Whiteboard() {
           overflow: hidden;
           text-overflow: ellipsis;
           white-space: nowrap;
+        }
+
+        .right-clock-row {
+          position: absolute;
+          top: 64px;
+          right: 16px;
+          z-index: 10;
+          display: flex;
+          align-items: flex-start;
+          gap: 8px;
         }
 
         .zoom-controls {

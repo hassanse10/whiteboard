@@ -43,10 +43,6 @@ export default function GeoClock() {
       {label && <span className="geo-clock-label">{label}</span>}
       <style jsx>{`
         .geo-clock {
-          position: absolute;
-          top: 64px;
-          right: 16px;
-          z-index: 10;
           display: flex;
           align-items: center;
           gap: 6px;
@@ -57,6 +53,7 @@ export default function GeoClock() {
           font-size: 0.85rem;
           color: #1e1e1e;
           white-space: nowrap;
+          flex-shrink: 0;
         }
 
         .geo-clock-time {
@@ -71,8 +68,6 @@ export default function GeoClock() {
 
         @media (max-width: 640px) {
           .geo-clock {
-            top: 56px;
-            right: 8px;
             padding: 4px 10px;
           }
 
