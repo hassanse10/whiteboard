@@ -76,24 +76,41 @@ export default function CountdownTimer({ userName }: { userName: string }) {
     return () => document.removeEventListener("mousedown", onDown);
   }, [open]);
 
+  function applyOptimistic(next: TimerState) {
+    timerRef.current = next;
+    setTimer(next);
+    setDisplay(getLive(next));
+    finishedRef.current = next.status === "finished";
+  }
+
   function handleSet() {
     const mins = Math.max(0, Math.min(99, parseInt(inputMin) || 0));
     const secs = Math.max(0, Math.min(59, parseInt(inputSec) || 0));
     const duration = mins * 60 + secs;
     if (duration <= 0) return;
+    applyOptimistic({ duration, remaining: duration, startedAt: 0, status: "idle", setBy: userName });
     getSocket().emit("timer-set", { duration, name: userName });
-    setOpen(false);
+    // Keep panel open so user can immediately click Start
   }
 
   function handleStartPause() {
     const s = getSocket();
     if (timer.status === "running") {
+      const elapsed = (Date.now() - timer.startedAt) / 1000;
+      applyOptimistic({ ...timer, remaining: Math.max(0, timer.remaining - elapsed), startedAt: 0, status: "paused" });
       s.emit("timer-pause");
     } else if (timer.status === "finished") {
+      applyOptimistic({ ...timer, remaining: timer.duration, startedAt: 0, status: "idle" });
       s.emit("timer-reset");
     } else {
+      applyOptimistic({ ...timer, startedAt: Date.now(), status: "running" });
       s.emit("timer-start");
     }
+  }
+
+  function handleReset() {
+    applyOptimistic({ ...timer, remaining: timer.duration, startedAt: 0, status: "idle" });
+    getSocket().emit("timer-reset");
   }
 
   const isUrgent = timer.status === "running" && display <= 60;
@@ -168,7 +185,7 @@ export default function CountdownTimer({ userName }: { userName: string }) {
             <button
               className="timer-ctrl-btn reset"
               type="button"
-              onClick={() => getSocket().emit("timer-reset")}
+              onClick={handleReset}
             >
               Reset
             </button>
