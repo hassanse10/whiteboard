@@ -330,6 +330,7 @@ export default function Whiteboard() {
   const [currentBackgroundColor, setCurrentBackgroundColor] = useState("transparent");
   const [currentStrokeWidth, setCurrentStrokeWidth] = useState(1);
   const [currentOpacity, setCurrentOpacity] = useState(100);
+  const [currentZoom, setCurrentZoom] = useState(1);
   const [isOffline, setIsOffline] = useState(true);
   const [linkCopied, setLinkCopied] = useState(false);
   const [onlineUsers, setOnlineUsers] = useState<{ socketId: string; name: string; color: string }[]>([]);
@@ -640,6 +641,44 @@ export default function Whiteboard() {
       socket.emit("presenter-start", { name: identity.name });
       setIsPresenting(true);
     }
+  };
+
+  const handleZoomIn = () => {
+    const api = excalidrawAPI.current;
+    if (!api) return;
+    const appState = api.getAppState();
+    const nextZoom = Math.min(MAX_ZOOM, appState.zoom.value * 1.25);
+    api.updateScene({
+      appState: getStateForZoom(
+        { viewportX: appState.width / 2, viewportY: appState.height / 2, nextZoom },
+        appState
+      )
+    });
+  };
+
+  const handleZoomOut = () => {
+    const api = excalidrawAPI.current;
+    if (!api) return;
+    const appState = api.getAppState();
+    const nextZoom = Math.max(MIN_ZOOM, appState.zoom.value / 1.25);
+    api.updateScene({
+      appState: getStateForZoom(
+        { viewportX: appState.width / 2, viewportY: appState.height / 2, nextZoom },
+        appState
+      )
+    });
+  };
+
+  const handleZoomReset = () => {
+    const api = excalidrawAPI.current;
+    if (!api) return;
+    const appState = api.getAppState();
+    api.updateScene({
+      appState: getStateForZoom(
+        { viewportX: appState.width / 2, viewportY: appState.height / 2, nextZoom: 1 },
+        appState
+      )
+    });
   };
 
   useEffect(() => {
@@ -1078,6 +1117,42 @@ export default function Whiteboard() {
           </div>
         ) : null}
 
+        <div className="zoom-controls">
+          <button
+            type="button"
+            className="zoom-btn"
+            onClick={handleZoomOut}
+            title="Zoom out"
+            aria-label="Zoom out"
+            disabled={currentZoom <= MIN_ZOOM}
+          >
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M5 12h14" />
+            </svg>
+          </button>
+          <button
+            type="button"
+            className="zoom-pct"
+            onClick={handleZoomReset}
+            title="Reset to 100%"
+            aria-label="Reset zoom"
+          >
+            {Math.round(currentZoom * 100)}%
+          </button>
+          <button
+            type="button"
+            className="zoom-btn"
+            onClick={handleZoomIn}
+            title="Zoom in"
+            aria-label="Zoom in"
+            disabled={currentZoom >= MAX_ZOOM}
+          >
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M12 5v14M5 12h14" />
+            </svg>
+          </button>
+        </div>
+
         <div className="whiteboard-wrapper" ref={wrapperRef}>
           <Excalidraw
             initialData={initialData}
@@ -1108,6 +1183,7 @@ export default function Whiteboard() {
               sceneRef.current = scene;
 
               setHasSelection(Object.values(appState.selectedElementIds || {}).some(Boolean));
+              setCurrentZoom(appState.zoom?.value ?? 1);
               setCurrentStrokeColor(appState.currentItemStrokeColor ?? "#1e1e1e");
               setCurrentBackgroundColor(appState.currentItemBackgroundColor ?? "transparent");
               setCurrentStrokeWidth(appState.currentItemStrokeWidth ?? 1);
@@ -1574,6 +1650,70 @@ export default function Whiteboard() {
           }
         }
 
+        .presenter-banner-text {
+          overflow: hidden;
+          text-overflow: ellipsis;
+          white-space: nowrap;
+        }
+
+        .zoom-controls {
+          position: absolute;
+          bottom: 16px;
+          left: 16px;
+          z-index: 10;
+          display: flex;
+          align-items: center;
+          gap: 2px;
+          padding: 4px;
+          background: #ffffff;
+          border-radius: 12px;
+          box-shadow: 0 4px 12px rgba(15, 23, 42, 0.12), 0 2px 4px rgba(15, 23, 42, 0.08);
+        }
+
+        .zoom-btn {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          width: 32px;
+          height: 32px;
+          border-radius: 8px;
+          border: none;
+          background: transparent;
+          color: #1e1e1e;
+          cursor: pointer;
+          transition: background 0.15s ease, color 0.15s ease;
+        }
+
+        .zoom-btn:hover:not(:disabled) {
+          background: #f1f0ff;
+          color: #6965db;
+        }
+
+        .zoom-btn:disabled {
+          opacity: 0.35;
+          cursor: default;
+        }
+
+        .zoom-pct {
+          min-width: 48px;
+          height: 32px;
+          padding: 0 6px;
+          border-radius: 8px;
+          border: none;
+          background: transparent;
+          color: #1e1e1e;
+          font-size: 0.8rem;
+          font-weight: 600;
+          font-variant-numeric: tabular-nums;
+          cursor: pointer;
+          transition: background 0.15s ease, color 0.15s ease;
+        }
+
+        .zoom-pct:hover {
+          background: #f1f0ff;
+          color: #6965db;
+        }
+
         .link-toast {
           position: absolute;
           top: calc(100% + 8px);
@@ -1588,15 +1728,68 @@ export default function Whiteboard() {
 
         @media (max-width: 640px) {
           .floating-toolbar {
-            max-width: calc(100vw - 24px);
+            top: auto;
+            bottom: 8px;
+            max-width: calc(100vw - 16px);
             overflow-x: auto;
-            top: 8px;
           }
 
           .icon-btn {
             width: 36px;
             height: 36px;
             flex-shrink: 0;
+          }
+
+          .icon-btn .shortcut {
+            display: none;
+          }
+
+          .link-toast {
+            top: auto;
+            bottom: calc(100% + 8px);
+          }
+
+          .style-panel {
+            top: auto;
+            bottom: 56px;
+            left: 8px;
+            right: 8px;
+            width: auto;
+            max-width: none;
+            flex-direction: row;
+            align-items: center;
+            gap: 14px;
+            padding: 10px 12px;
+            overflow-x: auto;
+          }
+
+          .panel-section {
+            flex-direction: row;
+            align-items: center;
+            gap: 6px;
+            flex-shrink: 0;
+          }
+
+          .panel-label {
+            white-space: nowrap;
+          }
+
+          .opacity-slider {
+            width: 80px;
+          }
+
+          .opacity-scale {
+            display: none;
+          }
+
+          .sections-panel {
+            width: calc(100vw - 32px);
+            max-width: 280px;
+            max-height: calc(100% - 152px);
+          }
+
+          .presenter-banner {
+            max-width: calc(100vw - 32px);
           }
         }
       `}</style>
