@@ -3,8 +3,26 @@ import { SiteHeader } from "../../../components/landing/SiteHeader";
 import { SiteFooter } from "../../../components/landing/SiteFooter";
 
 export const metadata: Metadata = {
-  title: "Terms of Service — Tablo",
-  description: "The terms that govern your use of Tablo."
+  title: "Terms of Service — tablo",
+  description:
+    "Read tablo's Terms of Service. By using tablo you agree to these terms, which cover acceptable use, board data, and our right to modify the service.",
+  alternates: {
+    canonical: "https://tablo.click/terms"
+  },
+  openGraph: {
+    title: "Terms of Service — tablo",
+    description:
+      "Read tablo's Terms of Service. By using tablo you agree to these terms, which cover acceptable use, board data, and our right to modify the service.",
+    url: "https://tablo.click/terms",
+    siteName: "tablo",
+    type: "website"
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Terms of Service — tablo",
+    description:
+      "Read tablo's Terms of Service. By using tablo you agree to these terms, which cover acceptable use, board data, and our right to modify the service."
+  }
 };
 
 export default function TermsPage() {

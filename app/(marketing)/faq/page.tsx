@@ -3,8 +3,26 @@ import { SiteHeader } from "../../../components/landing/SiteHeader";
 import { SiteFooter } from "../../../components/landing/SiteFooter";
 
 export const metadata: Metadata = {
-  title: "FAQ — Tablo",
-  description: "Frequently asked questions about Tablo, the free real-time collaborative whiteboard."
+  title: "FAQ — tablo",
+  description:
+    "Frequently asked questions about tablo — the free real-time collaborative whiteboard. No sign-up required, works in any browser.",
+  alternates: {
+    canonical: "https://tablo.click/faq"
+  },
+  openGraph: {
+    title: "FAQ — tablo",
+    description:
+      "Frequently asked questions about tablo — the free real-time collaborative whiteboard. No sign-up required, works in any browser.",
+    url: "https://tablo.click/faq",
+    siteName: "tablo",
+    type: "website"
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "FAQ — tablo",
+    description:
+      "Frequently asked questions about tablo — the free real-time collaborative whiteboard. No sign-up required, works in any browser."
+  }
 };
 
 const faqs = [
@@ -42,9 +60,26 @@ const faqs = [
   }
 ];
 
+const faqSchema = {
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  mainEntity: faqs.map((item) => ({
+    "@type": "Question",
+    name: item.q,
+    acceptedAnswer: {
+      "@type": "Answer",
+      text: item.a
+    }
+  }))
+};
+
 export default function FaqPage() {
   return (
     <>
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(faqSchema) }}
+      />
       <SiteHeader />
       <main>
         <section className="legal">

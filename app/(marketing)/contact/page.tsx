@@ -3,8 +3,26 @@ import { SiteHeader } from "../../../components/landing/SiteHeader";
 import { SiteFooter } from "../../../components/landing/SiteFooter";
 
 export const metadata: Metadata = {
-  title: "Contact us — Tablo",
-  description: "Get in touch with the Tablo team."
+  title: "Contact us — tablo",
+  description:
+    "Get in touch with the tablo team. We're here for questions, feedback, bug reports, and feature ideas.",
+  alternates: {
+    canonical: "https://tablo.click/contact"
+  },
+  openGraph: {
+    title: "Contact us — tablo",
+    description:
+      "Get in touch with the tablo team. We're here for questions, feedback, bug reports, and feature ideas.",
+    url: "https://tablo.click/contact",
+    siteName: "tablo",
+    type: "website"
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Contact us — tablo",
+    description:
+      "Get in touch with the tablo team. We're here for questions, feedback, bug reports, and feature ideas."
+  }
 };
 
 export default function ContactPage() {

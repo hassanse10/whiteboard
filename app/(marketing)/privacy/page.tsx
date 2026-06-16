@@ -3,8 +3,26 @@ import { SiteHeader } from "../../../components/landing/SiteHeader";
 import { SiteFooter } from "../../../components/landing/SiteFooter";
 
 export const metadata: Metadata = {
-  title: "Privacy Policy — Tablo",
-  description: "How Tablo handles your data."
+  title: "Privacy Policy — tablo",
+  description:
+    "Learn how tablo collects, uses, and protects your data. We keep it minimal — no accounts, no tracking beyond what's needed to run the service.",
+  alternates: {
+    canonical: "https://tablo.click/privacy"
+  },
+  openGraph: {
+    title: "Privacy Policy — tablo",
+    description:
+      "Learn how tablo collects, uses, and protects your data. We keep it minimal — no accounts, no tracking beyond what's needed to run the service.",
+    url: "https://tablo.click/privacy",
+    siteName: "tablo",
+    type: "website"
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Privacy Policy — tablo",
+    description:
+      "Learn how tablo collects, uses, and protects your data. We keep it minimal — no accounts, no tracking beyond what's needed to run the service."
+  }
 };
 
 export default function PrivacyPage() {
