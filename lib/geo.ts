@@ -1,3 +1,28 @@
+export interface UserLocation {
+  city: string;
+  country: string;
+  timezone: string;
+}
+
+export async function fetchUserLocation(): Promise<UserLocation | null> {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 4000);
+  try {
+    const res = await fetch("https://ipinfo.io/json", { signal: controller.signal });
+    if (!res.ok) return null;
+    const data = await res.json();
+    return {
+      city: data.city || "",
+      country: data.country || "",
+      timezone: data.timezone || getUserTimezone()
+    };
+  } catch {
+    return null;
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
 const TIMEZONE_LANGUAGE_MAP: Record<string, string> = {
   // French
   "Europe/Paris": "fr",

@@ -1,15 +1,28 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { getUserTimezone, timezoneToLabel } from "../lib/geo";
+import { fetchUserLocation, getUserTimezone, timezoneToLabel } from "../lib/geo";
 
 export default function GeoClock() {
   const [now, setNow] = useState<Date | null>(null);
   const [timezone, setTimezone] = useState("UTC");
+  const [city, setCity] = useState("");
+  const [country, setCountry] = useState("");
 
   useEffect(() => {
-    setTimezone(getUserTimezone());
+    const tz = getUserTimezone();
+    setTimezone(tz);
+    setCity(timezoneToLabel(tz));
     setNow(new Date());
+
+    fetchUserLocation().then((loc) => {
+      if (loc) {
+        if (loc.city) setCity(loc.city);
+        if (loc.country) setCountry(loc.country);
+        if (loc.timezone) setTimezone(loc.timezone);
+      }
+    });
+
     const interval = setInterval(() => setNow(new Date()), 30000);
     return () => clearInterval(interval);
   }, []);
@@ -22,10 +35,12 @@ export default function GeoClock() {
     minute: "2-digit"
   }).format(now);
 
+  const label = country ? `${city}, ${country}` : city;
+
   return (
     <div className="geo-clock" title={timezone}>
       <span className="geo-clock-time">{time}</span>
-      <span className="geo-clock-label">{timezoneToLabel(timezone)}</span>
+      {label && <span className="geo-clock-label">{label}</span>}
       <style jsx>{`
         .geo-clock {
           position: absolute;
