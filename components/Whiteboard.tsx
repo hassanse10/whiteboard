@@ -707,7 +707,7 @@ export default function Whiteboard() {
       const arrayBuffer = await file.arrayBuffer();
 
       const pdfjsLib = await import("pdfjs-dist");
-      pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`;
+      pdfjsLib.GlobalWorkerOptions.workerSrc = "/pdf.worker.min.js";
 
       const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
       const numPages = pdf.numPages;
@@ -779,9 +779,9 @@ export default function Whiteboard() {
         groupIds: [] as string[],
         frameId: null,
         roundness: null,
-        seed: Math.floor(Math.random() * 1e6),
+        seed: Math.floor(Math.random() * (2 ** 31)),
         version: 1,
-        versionNonce: Math.floor(Math.random() * 1e6),
+        versionNonce: Math.floor(Math.random() * (2 ** 31)),
         isDeleted: false,
         boundElements: null,
         updated: now,
