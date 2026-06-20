@@ -695,8 +695,112 @@ export default function Whiteboard() {
     });
   };
 
-  const handleImportPdf = async (_event: React.ChangeEvent<HTMLInputElement>) => {
-    // implemented in Task 4
+  const handleImportPdf = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    const api = excalidrawAPI.current;
+    const socket = socketRef.current;
+    if (!api || !socket) return;
+
+    try {
+      const arrayBuffer = await file.arrayBuffer();
+
+      const pdfjsLib = await import("pdfjs-dist");
+      pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`;
+
+      const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+      const numPages = pdf.numPages;
+
+      setPdfImporting({ current: 0, total: numPages });
+
+      const pageFiles: Array<{ id: string; mimeType: string; dataURL: string; created: number }> = [];
+      const pageDimensions: Array<{ width: number; height: number }> = [];
+
+      for (let i = 1; i <= numPages; i++) {
+        const page = await pdf.getPage(i);
+        const viewport = page.getViewport({ scale: 1.5 });
+
+        const canvas = document.createElement("canvas");
+        canvas.width = Math.round(viewport.width);
+        canvas.height = Math.round(viewport.height);
+        const ctx = canvas.getContext("2d");
+        if (!ctx) throw new Error("Could not get canvas context");
+
+        await page.render({ canvasContext: ctx, viewport }).promise;
+
+        const dataURL = canvas.toDataURL("image/png");
+        const id = crypto.randomUUID();
+
+        pageFiles.push({ id, mimeType: "image/png", dataURL, created: Date.now() });
+        pageDimensions.push({ width: canvas.width, height: canvas.height });
+
+        setPdfImporting({ current: i, total: numPages });
+      }
+
+      // Mark as known BEFORE addFiles so onChange doesn't re-upload them
+      for (const f of pageFiles) {
+        knownFileIdsRef.current.add(f.id);
+      }
+
+      api.addFiles(pageFiles);
+
+      // Emit one file per message to stay under the 15 MB socket buffer limit
+      for (const f of pageFiles) {
+        socket.emit("file-upload", { files: { [f.id]: f } });
+      }
+
+      const appState = api.getAppState();
+      const positions = computePdfPagePositions(pageDimensions, {
+        scrollX: appState.scrollX,
+        scrollY: appState.scrollY,
+        width: appState.width,
+        height: appState.height,
+      });
+
+      const existingElements = api.getSceneElements();
+      const now = Date.now();
+      const newElements = pageFiles.map((f, i) => ({
+        id: crypto.randomUUID(),
+        type: "image" as const,
+        fileId: f.id,
+        x: positions[i].x,
+        y: positions[i].y,
+        width: positions[i].width,
+        height: positions[i].height,
+        angle: 0,
+        strokeColor: "#000000",
+        backgroundColor: "transparent",
+        fillStyle: "solid" as const,
+        strokeWidth: 1,
+        strokeStyle: "solid" as const,
+        roughness: 1,
+        opacity: 100,
+        groupIds: [] as string[],
+        frameId: null,
+        roundness: null,
+        seed: Math.floor(Math.random() * 1e6),
+        version: 1,
+        versionNonce: Math.floor(Math.random() * 1e6),
+        isDeleted: false,
+        boundElements: null,
+        updated: now,
+        link: null,
+        locked: false,
+        status: "saved" as const,
+        scale: [1, 1] as [number, number],
+      }));
+
+      api.updateScene({ elements: [...existingElements, ...newElements] as any[] });
+    } catch {
+      setPdfError(true);
+      setTimeout(() => setPdfError(false), 2000);
+    } finally {
+      setPdfImporting(null);
+      if (pdfInputRef.current) {
+        pdfInputRef.current.value = "";
+      }
+    }
   };
 
   useEffect(() => {
