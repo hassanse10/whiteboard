@@ -11,6 +11,7 @@ import { loadCachedScene, saveCachedScene } from "../lib/sceneCache";
 import GeoClock from "./GeoClock";
 import CountdownTimer from "./CountdownTimer";
 import VideoCall from "./VideoCall";
+import { computePdfPagePositions } from "../lib/pdfLayout";
 
 const VIEWPORT_PRELOAD_MARGIN = 200;
 const CACHE_DEBOUNCE_MS = 1000;
@@ -146,6 +147,7 @@ type IconName =
   | "stop"
   | "video"
   | "pdf"
+  | "pdfImport"
   | "layerToBack"
   | "layerBackward"
   | "layerForward"
@@ -216,6 +218,14 @@ const iconPaths: Record<IconName, ReactNode> = {
       <path d="M14 2v6h6" />
       <path d="M12 18v-5" />
       <path d="m9.5 15.5 2.5 2.5 2.5-2.5" />
+    </>
+  ),
+  pdfImport: (
+    <>
+      <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z" />
+      <path d="M14 2v6h6" />
+      <path d="M12 13v5" />
+      <path d="m9.5 15.5 2.5-2.5 2.5 2.5" />
     </>
   ),
   frame: (
@@ -354,6 +364,9 @@ export default function Whiteboard() {
   const knownFileIdsRef = useRef<Set<string>>(new Set());
   const requestedFileIdsRef = useRef<Set<string>>(new Set());
   const cacheTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const pdfInputRef = useRef<HTMLInputElement>(null);
+  const [pdfImporting, setPdfImporting] = useState<{ current: number; total: number } | null>(null);
+  const [pdfError, setPdfError] = useState(false);
   const isPresentingRef = useRef(false);
   const followPresenterRef = useRef(true);
   const sectionsSignatureRef = useRef("");
@@ -682,6 +695,10 @@ export default function Whiteboard() {
     });
   };
 
+  const handleImportPdf = async (_event: React.ChangeEvent<HTMLInputElement>) => {
+    // implemented in Task 4
+  };
+
   useEffect(() => {
     const wrapper = wrapperRef.current;
     if (!wrapper) return;
@@ -846,6 +863,22 @@ export default function Whiteboard() {
   return (
     <div className="whiteboard-shell">
       <div className="board-wrapper">
+        <input
+          ref={pdfInputRef}
+          type="file"
+          accept=".pdf"
+          style={{ display: "none" }}
+          onChange={handleImportPdf}
+        />
+        {pdfImporting ? (
+          <div className="pdf-import-overlay">
+            <div className="pdf-import-card">
+              <span className="pdf-import-text">
+                Rendering PDF pages… {pdfImporting.current} / {pdfImporting.total}
+              </span>
+            </div>
+          </div>
+        ) : null}
         <div className="right-clock-row">
           <CountdownTimer userName={identity.name} />
           <GeoClock />
@@ -1054,6 +1087,16 @@ export default function Whiteboard() {
             <button
               type="button"
               className="icon-btn"
+              onClick={() => pdfInputRef.current?.click()}
+              title="Import PDF (all pages placed on canvas)"
+              aria-label="Import PDF"
+            >
+              <ToolIcon name="pdfImport" />
+            </button>
+
+            <button
+              type="button"
+              className="icon-btn"
               onClick={handleExportPdf}
               title="Export to PDF (frames, selection, or whole board)"
               aria-label="Export to PDF"
@@ -1067,6 +1110,7 @@ export default function Whiteboard() {
           <span className={isOffline ? "status-dot offline" : "status-dot online"} title={isOffline ? "Offline" : "Connected"} />
 
           {linkCopied ? <span className="link-toast">Link copied</span> : null}
+          {pdfError ? <span className="link-toast">Could not read PDF</span> : null}
         </div>
 
         {presenter && !isPresenting ? (
@@ -1805,6 +1849,30 @@ export default function Whiteboard() {
           .presenter-banner {
             max-width: calc(100vw - 32px);
           }
+        }
+
+        .pdf-import-overlay {
+          position: absolute;
+          inset: 0;
+          z-index: 20;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          background: rgba(255, 255, 255, 0.6);
+          backdrop-filter: blur(2px);
+        }
+
+        .pdf-import-card {
+          padding: 16px 24px;
+          background: #ffffff;
+          border-radius: 12px;
+          box-shadow: 0 4px 12px rgba(15, 23, 42, 0.18);
+        }
+
+        .pdf-import-text {
+          font-size: 0.9rem;
+          font-weight: 600;
+          color: #1e1e1e;
         }
       `}</style>
 
